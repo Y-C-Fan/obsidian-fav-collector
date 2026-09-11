@@ -35,9 +35,8 @@ export function notePathFor(dto: {
     ? `Fav Collector/${dto.platform}/${sanitizeFilename(folder)}`
     : `Fav Collector/${dto.platform}`;
   const safeTitle = sanitizeFilename(dto.title || dto.platformItemId);
-  // YouTube 稍后再看按发布时间排序：文件名加 YYYY-MM-DD_ 前缀，资源管理器天然按时间排
-  const datePrefix =
-    dto.platform === "youtube" && dto.publishedAt?.trim() ? `${dto.publishedAt.trim()}_` : "";
+  // 按发布时间排序：有 publishedAt 的笔记文件名加 YYYY-MM-DD_ 前缀，资源管理器天然按时间排
+  const datePrefix = dto.publishedAt?.trim() ? `${dto.publishedAt.trim()}_` : "";
   return `${dir}/${datePrefix}${safeTitle}.md`;
 }
 

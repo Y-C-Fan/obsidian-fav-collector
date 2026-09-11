@@ -71,9 +71,12 @@ describe("MarkdownBuilder", () => {
       publishedAt: "2024-01-15",
     };
     expect(notePathFor(yt)).toBe("Fav Collector/youtube/稍后再看/2024-01-15_视频标题.md");
-    // 无日期不加前缀；非 youtube 平台不受影响
+    // 无日期不加前缀
     expect(notePathFor({ ...yt, publishedAt: undefined })).toBe("Fav Collector/youtube/稍后再看/视频标题.md");
-    expect(notePathFor({ ...dto, publishedAt: "2024-01-15" })).toBe("Fav Collector/bilibili/视频标题.md");
+    // 有日期的 B站笔记同样加前缀
+    expect(notePathFor({ ...dto, publishedAt: "2023-05-01" })).toBe(
+      "Fav Collector/bilibili/2023-05-01_视频标题.md",
+    );
   });
 
   it("buildFromDTO carries published_at in system zone and frontmatter", () => {
