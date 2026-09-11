@@ -28,13 +28,17 @@ export function notePathFor(dto: {
   platformItemId: string;
   saveType: string;
   favFolder?: string;
+  publishedAt?: string;
 }): string {
   const folder = dto.favFolder?.trim() || (dto.saveType === "watch_later" ? "稍后再看" : undefined);
   const dir = folder
     ? `Fav Collector/${dto.platform}/${sanitizeFilename(folder)}`
     : `Fav Collector/${dto.platform}`;
   const safeTitle = sanitizeFilename(dto.title || dto.platformItemId);
-  return `${dir}/${safeTitle}.md`;
+  // YouTube 稍后再看按发布时间排序：文件名加 YYYY-MM-DD_ 前缀，资源管理器天然按时间排
+  const datePrefix =
+    dto.platform === "youtube" && dto.publishedAt?.trim() ? `${dto.publishedAt.trim()}_` : "";
+  return `${dir}/${datePrefix}${safeTitle}.md`;
 }
 
 /**
@@ -54,6 +58,7 @@ export class MarkdownBuilder {
       `expanded: ${expanded ? "true" : "false"}`,
       `expanded_at: ${yamlString(dto.expandedAt ?? "")}`,
     ];
+    if (dto.publishedAt?.trim()) lines.push(`published_at: ${yamlString(dto.publishedAt.trim())}`);
     if (full) lines.push("```全文", full, "```");
     return lines.join("\n");
   }
@@ -96,7 +101,7 @@ export class MarkdownBuilder {
   private buildFrontmatter(dto: CollectionDTO): string {
     const tags = JSON.stringify(dto.tags ?? []);
     const topics = JSON.stringify(dto.topics ?? []);
-    return [
+    const fm = [
       "---",
       `platform: ${yamlString(dto.platform)}`,
       `url: ${yamlString(dto.url)}`,
@@ -104,8 +109,10 @@ export class MarkdownBuilder {
       `organize_status: ${yamlString(dto.organizeStatus)}`,
       `tags: ${tags}`,
       `topics: ${topics}`,
-      "---",
-    ].join("\n");
+    ];
+    if (dto.publishedAt?.trim()) fm.push(`published_at: ${yamlString(dto.publishedAt.trim())}`);
+    fm.push("---");
+    return fm.join("\n");
   }
 
   validateMarkers(md: string): boolean {

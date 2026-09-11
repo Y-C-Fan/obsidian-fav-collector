@@ -62,6 +62,29 @@ describe("MarkdownBuilder", () => {
     expect(notePathFor({ ...dto, title: "" })).toBe("Fav Collector/bilibili/BV1.md");
   });
 
+  it("notePathFor prefixes youtube notes with publishedAt for chronological sorting", () => {
+    const yt: CollectionDTO = {
+      ...dto,
+      platform: "youtube",
+      platformItemId: "abc123",
+      saveType: "watch_later",
+      publishedAt: "2024-01-15",
+    };
+    expect(notePathFor(yt)).toBe("Fav Collector/youtube/稍后再看/2024-01-15_视频标题.md");
+    // 无日期不加前缀；非 youtube 平台不受影响
+    expect(notePathFor({ ...yt, publishedAt: undefined })).toBe("Fav Collector/youtube/稍后再看/视频标题.md");
+    expect(notePathFor({ ...dto, publishedAt: "2024-01-15" })).toBe("Fav Collector/bilibili/视频标题.md");
+  });
+
+  it("buildFromDTO carries published_at in system zone and frontmatter", () => {
+    const md = new MarkdownBuilder().buildFromDTO({
+      ...dto,
+      platform: "youtube",
+      publishedAt: "2024-01-15",
+    });
+    expect(md).toContain('published_at: "2024-01-15"');
+  });
+
   it("extracts user zone sections", () => {
     const md = new MarkdownBuilder().buildFromDTO(dto);
     const withContent = md.replace("## 我的笔记\n", "## 我的笔记\n这是我的笔记");

@@ -27,6 +27,16 @@ import type { CommHandler } from "./comm-server.js";
 
 const SYNC_MODES: SyncMode[] = ["catalog", "full", "detail"];
 
+/** 从 extra_json 解析内容发布时间（YouTube published_at，YYYY-MM-DD）。 */
+function publishedAtOf(row: { extra_json?: string | null }): string | undefined {
+  try {
+    const extra = JSON.parse(row.extra_json ?? "{}") as { published_at?: unknown };
+    const v = extra.published_at;
+    return typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v.trim()) ? v.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 /** 从 extra_json 解析收藏夹/分组名（B站 favFolder、知乎 favlist）。 */
 function favFolderOf(row: { extra_json?: string | null }): string | undefined {
   try {
@@ -336,6 +346,7 @@ export class TaskService {
             transcript: c.transcript ?? undefined,
             expandedAt: c.detail_synced === 1 ? (c.last_synced_at ?? undefined) : undefined,
             favFolder: favFolderOf(c),
+            publishedAt: publishedAtOf(c),
             contentType: c.content_type,
             saveType: c.save_type,
             contentStatus: c.content_status,
@@ -464,6 +475,7 @@ export class TaskService {
           transcript: col.transcript ?? undefined,
           expandedAt: col.detail_synced === 1 ? (col.last_synced_at ?? undefined) : undefined,
           favFolder: favFolderOf(col),
+          publishedAt: publishedAtOf(col),
           contentType: col.content_type,
           saveType: col.save_type,
           contentStatus: col.content_status,

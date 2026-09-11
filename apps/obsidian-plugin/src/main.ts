@@ -383,10 +383,15 @@ export default class OmniCollectorPlugin extends Plugin {
       if (!(await vault.adapter.exists(dir))) {
         await vault.createFolder(dir);
       }
-      // 旧版平铺路径（Fav Collector/{平台}/{标题}.md）→ 新文件夹结构：搬家，保留用户区
-      const legacyPath = `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}.md`;
-      try {
-        if (filePath !== legacyPath && (await vault.adapter.exists(legacyPath))) {
+      // 旧路径 → 新路径：搬家，保留用户区。候选：①旧版平铺 ②改名前（无日期前缀）同目录文件
+      const legacyCandidates = [
+        `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}.md`,
+      ];
+      const unprefixed = `${dir}/${sanitizeFilename(dto.title || dto.platformItemId)}.md`;
+      if (unprefixed !== filePath) legacyCandidates.push(unprefixed);
+      for (const legacyPath of legacyCandidates) {
+        try {
+          if (filePath !== legacyPath && (await vault.adapter.exists(legacyPath))) {
           if (!(await vault.adapter.exists(filePath))) {
             await vault.adapter.rename(legacyPath, filePath);
             moved += 1;
@@ -421,6 +426,7 @@ export default class OmniCollectorPlugin extends Plugin {
       } catch {
         // 跳过单个文件写入失败
       }
+      } // legacy 搬家候选循环结束
     }
     // Topic 聚合页（PRD 17 / 关系图谱联动）
     const topics = await this.engine.listTopics().catch(() => []);
