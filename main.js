@@ -260,6 +260,7 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
     this.plugin = plugin;
     this.filter = "all";
     this.folderFilter = "all";
+    this.lastRenderAt = 0;
   }
   getViewType() {
     return VIEW_TYPE_FAV_DASHBOARD;
@@ -270,7 +271,64 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
   async onOpen() {
     await this.render();
   }
+  onunload() {
+    this.unsubProgress?.();
+    this.unsubProgress = void 0;
+  }
+  clock(iso) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const p = (n) => n.toString().padStart(2, "0");
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+  /** 同步进度区：跑的时候实时刷新 intention, 跑完留成绩单。 */
+  renderProgress(el) {
+    const sp = this.plugin.syncProgress;
+    const box = el.createDiv({ cls: "fav-syncgress" });
+    if (sp.running) {
+      const doneMap = new Map(sp.done.map((d) => [d.platform, d]));
+      const parts = [];
+      for (const p of PLATFORMS) {
+        const d = doneMap.get(p);
+        if (d) parts.push(`${d.ok ? "\u2713" : "\u2717"} ${PLATFORM_LABEL[p]}${d.ok ? ` +${d.added}` : ""}`);
+        else if (sp.current === p) parts.push(`\u25B6 ${PLATFORM_LABEL[p]}\u2026`);
+        else parts.push(`\u23F3 ${PLATFORM_LABEL[p]}`);
+      }
+      box.createDiv({ cls: "fav-syncgress-title", text: `\u540C\u6B65\u4E2D\uFF08${this.clock(sp.startedAt)} \u5F00\u59CB\uFF09` });
+      box.createDiv({ cls: "fav-syncgress-line", text: parts.join(" \xB7 ") });
+    } else if (sp.done.length > 0) {
+      const okN = sp.done.filter((d) => d.ok).length;
+      box.createDiv({
+        cls: "fav-syncgress-title",
+        text: `\u4E0A\u6B21\u540C\u6B65 ${this.clock(sp.finishedAt)}\uFF1A${okN}/${sp.done.length} \u6210\u529F`
+      });
+      box.createDiv({
+        cls: "fav-syncgress-line",
+        text: sp.done.map((d) => `${d.ok ? "\u2713" : "\u2717"} ${PLATFORM_LABEL[d.platform]} +${d.added}`).join(" \xB7 ")
+      });
+    } else {
+      const last = this.plugin.settings.lastSync;
+      const keys = PLATFORMS.filter((p) => last[p]);
+      if (keys.length === 0) {
+        box.createDiv({ cls: "fav-status", text: "\u8FD8\u6CA1\u540C\u6B65\u8FC7\uFF0C\u70B9\u5DE6\u4E0A\u300C\u540C\u6B65\u5168\u90E8\u300D\u5F00\u59CB" });
+        return;
+      }
+      box.createDiv({ cls: "fav-syncgress-title", text: "\u4E0A\u6B21\u540C\u6B65\u6210\u7EE9" });
+      box.createDiv({
+        cls: "fav-syncgress-line",
+        text: keys.map((p) => `${last[p].ok ? "\u2713" : "\u2717"} ${PLATFORM_LABEL[p]} ${this.clock(last[p].at)} +${last[p].added}`).join(" \xB7 ")
+      });
+    }
+  }
   async render() {
+    this.unsubProgress?.();
+    this.unsubProgress = this.plugin.onSyncProgress(() => {
+      const now2 = Date.now();
+      if (now2 - this.lastRenderAt < 2e3) return;
+      this.lastRenderAt = now2;
+      void this.render();
+    });
+    this.lastRenderAt = Date.now();
     const el = this.containerEl.children[1];
     el.empty();
     el.addClass("fav-dashboard");
@@ -285,6 +343,7 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
       else new import_obsidian2.Notice("Fav Collector \u6587\u4EF6\u5939\u8FD8\u4E0D\u5B58\u5728\uFF0C\u5148\u70B9\u4E00\u6B21\u540C\u6B65");
     };
     const status = bar.createSpan({ cls: "fav-status" });
+    this.renderProgress(el);
     const last = this.plugin.settings.lastSync;
     for (const p of PLATFORMS) {
       const rec = last[p];
@@ -813,6 +872,23 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
   constructor() {
     super(...arguments);
     this.syncing = false;
+    /** 同步进度（面板订阅，实时重渲染）。 */
+    this.syncProgress = { running: false, done: [] };
+    this.progressListeners = /* @__PURE__ */ new Set();
+  }
+  onSyncProgress(cb) {
+    this.progressListeners.add(cb);
+    return () => {
+      this.progressListeners.delete(cb);
+    };
+  }
+  emitProgress() {
+    for (const cb of [...this.progressListeners]) {
+      try {
+        cb();
+      } catch {
+      }
+    }
   }
   async onload() {
     this.settings = { ...DEFAULT_SETTINGS, ...await this.loadData() ?? {} };
@@ -875,23 +951,14 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       return;
     }
     this.syncing = true;
+    this.syncProgress = { running: true, current: platform, done: [], startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    this.emitProgress();
     try {
-      new import_obsidian3.Notice(`\u540C\u6B65 ${platform} \u4E2D\u2026\uFF08\u770B\u5E95\u90E8\u72B6\u6001\u680F\u8FDB\u5EA6\uFF09`);
+      new import_obsidian3.Notice(`\u540C\u6B65 ${platform} \u4E2D\u2026\uFF08\u603B\u89C8\u9875\u770B\u5B9E\u65F6\u8FDB\u5EA6\uFF09`);
       this.setStatus(`Fav: \u540C\u6B65 ${platform}\u2026`);
       const result = await syncPlatform(platform, this.runnerSettings(), this.http());
       const { favIds, urls } = await this.scanExisting();
-      const va = this.app.vault;
-      const report = await writeNewItems(
-        {
-          exists: (p) => va.adapter.exists(p),
-          mkdir: (p) => va.createFolder(p).then(() => void 0).catch(() => void 0),
-          write: (p, c) => va.create(p, c).then(() => void 0)
-        },
-        favIds,
-        urls,
-        [result],
-        (items) => enrichYoutubeDates({ ytdlpPath: this.runnerSettings().ytdlpPath, cookieFile: this.runnerSettings().ytCookieFile }, items)
-      );
+      const report = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
       this.settings.lastSync[platform] = {
         at: (/* @__PURE__ */ new Date()).toISOString(),
         ok: result.ok,
@@ -899,11 +966,28 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
         error: result.error
       };
       await this.saveSettings();
+      this.syncProgress.running = false;
+      this.syncProgress.current = void 0;
+      this.syncProgress.done = [{ platform, ok: result.ok, added: report.added, error: result.error }];
+      this.syncProgress.finishedAt = (/* @__PURE__ */ new Date()).toISOString();
       this.setStatus(result.ok ? `Fav: ${platform} +${report.added}` : `Fav: ${platform} \u5931\u8D25`);
+      this.emitProgress();
       new import_obsidian3.Notice(result.ok ? `${platform} \u540C\u6B65\u5B8C\u6210\uFF0C\u65B0\u589E ${report.added} \u6761` : `${platform} \u5931\u8D25\uFF1A${result.error}`);
     } finally {
       this.syncing = false;
     }
+  }
+  fsAdapter() {
+    const va = this.app.vault;
+    return {
+      exists: (p) => va.adapter.exists(p),
+      mkdir: (p) => va.createFolder(p).then(() => void 0).catch(() => void 0),
+      write: (p, c) => va.create(p, c).then(() => void 0)
+    };
+  }
+  ytEnrich() {
+    const s = this.runnerSettings();
+    return (items) => enrichYoutubeDates({ ytdlpPath: s.ytdlpPath, cookieFile: s.ytCookieFile }, items);
   }
   async syncAll() {
     if (this.syncing) {
@@ -911,52 +995,50 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       return;
     }
     this.syncing = true;
+    this.syncProgress = { running: true, done: [], startedAt: (/* @__PURE__ */ new Date()).toISOString() };
+    this.emitProgress();
     try {
-      new import_obsidian3.Notice("\u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026");
+      new import_obsidian3.Notice("\u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026\uFF08\u603B\u89C8\u9875\u770B\u5B9E\u65F6\u8FDB\u5EA6\uFF09");
       const http = this.http();
       const settings = this.runnerSettings();
-      const results = [];
-      let done = 0;
-      for (const p of PLATFORMS) {
-        this.setStatus(`Fav: \u540C\u6B65 ${p}\uFF08${done + 1}/${PLATFORMS.length}\uFF09\u2026`);
-        try {
-          results.push(await syncPlatform(p, settings, http));
-        } catch (e) {
-          results.push({ platform: p, ok: false, items: [], error: e.message });
-        }
-        done += 1;
-      }
-      this.setStatus("Fav: \u5199\u7B14\u8BB0\u2026");
       const { favIds, urls } = await this.scanExisting();
-      const va = this.app.vault;
-      const report = await writeNewItems(
-        {
-          exists: (p) => va.adapter.exists(p),
-          mkdir: (p) => va.createFolder(p).then(() => void 0).catch(() => void 0),
-          write: (p, c) => va.create(p, c).then(() => void 0)
-        },
-        favIds,
-        urls,
-        results,
-        (items) => enrichYoutubeDates({ ytdlpPath: settings.ytdlpPath, cookieFile: settings.ytCookieFile }, items)
-      );
-      const now = (/* @__PURE__ */ new Date()).toISOString();
-      for (const r of results) {
-        this.settings.lastSync[r.platform] = {
-          at: now,
-          ok: r.ok,
-          added: 0,
-          error: r.error
-        };
+      let totalAdded = 0;
+      let idx = 0;
+      for (const p of PLATFORMS) {
+        idx += 1;
+        this.syncProgress.current = p;
+        this.setStatus(`Fav: \u540C\u6B65 ${p}\uFF08${idx}/${PLATFORMS.length}\uFF09\u2026`);
+        this.emitProgress();
+        let result;
+        try {
+          result = await syncPlatform(p, settings, http);
+        } catch (e) {
+          result = { platform: p, ok: false, items: [], error: e.message };
+        }
+        let added = 0;
+        if (result.ok) {
+          try {
+            const rep = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
+            added = rep.added;
+            totalAdded += added;
+          } catch (e) {
+            result = { platform: p, ok: false, items: [], error: `\u5199\u7B14\u8BB0\u5931\u8D25\uFF1A${e.message}` };
+          }
+        }
+        this.syncProgress.done.push({ platform: p, ok: result.ok, added, error: result.error });
+        this.settings.lastSync[p] = { at: (/* @__PURE__ */ new Date()).toISOString(), ok: result.ok, added, error: result.error };
+        await this.saveSettings();
+        this.emitProgress();
       }
-      await this.saveSettings();
-      const okCount = results.filter((r) => r.ok).length;
-      const failed = results.filter((r) => !r.ok).map((r) => r.platform);
-      this.setStatus(
-        failed.length === 0 ? `Fav: \u5B8C\u6210 +${report.added}` : `Fav: ${failed.join("\u3001")}\u5931\u8D25`
-      );
+      this.syncProgress.running = false;
+      this.syncProgress.current = void 0;
+      this.syncProgress.finishedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const failed = this.syncProgress.done.filter((d) => !d.ok).map((d) => d.platform);
+      const okCount = this.syncProgress.done.length - failed.length;
+      this.setStatus(failed.length === 0 ? `Fav: \u5B8C\u6210 +${totalAdded}` : `Fav: ${failed.join("\u3001")}\u5931\u8D25`);
+      this.emitProgress();
       new import_obsidian3.Notice(
-        failed.length === 0 ? `\u540C\u6B65\u5B8C\u6210\uFF1A${PLATFORMS.length}/${PLATFORMS.length} \u5E73\u53F0\uFF0C\u65B0\u589E ${report.added} \u6761` : `\u540C\u6B65\u5B8C\u6210 ${okCount}/${PLATFORMS.length}\uFF0C\u65B0\u589E ${report.added} \u6761\uFF1B\u5931\u8D25\uFF1A${failed.join("\u3001")}\uFF08\u770B\u603B\u89C8\u7EA2\u5361\u91CD\u8BD5\uFF09`
+        failed.length === 0 ? `\u540C\u6B65\u5B8C\u6210\uFF1A${PLATFORMS.length}/${PLATFORMS.length} \u5E73\u53F0\uFF0C\u65B0\u589E ${totalAdded} \u6761` : `\u540C\u6B65\u5B8C\u6210 ${okCount}/${PLATFORMS.length}\uFF0C\u65B0\u589E ${totalAdded} \u6761\uFF1B\u5931\u8D25\uFF1A${failed.join("\u3001")}\uFF08\u770B\u603B\u89C8\u7EA2\u5361\u91CD\u8BD5\uFF09`
       );
       await this.openDashboard();
     } finally {

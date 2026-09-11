@@ -3,19 +3,53 @@
  * 点按钮 → 各平台直抓 → 去重 → 写 md → Dashboard 卡片墙直接读文件。
  */
 import { Notice, Plugin, WorkspaceLeaf, requestUrl } from "obsidian";
-import { DEFAULT_SETTINGS, type FavSettings } from "./settings.js";
-import { FavSettingTab } from "./settings-tab.js";
+import { DEFAULT_SETTINGS, type FavSettings } from "./settings.js";import { FavSettingTab } from "./settings-tab.js";
 import { FavDashboardView, VIEW_TYPE_FAV_DASHBOARD } from "./ui/dashboard.js";
 import { parseFrontmatter } from "./markdown/writer.js";
 import { syncPlatform, writeNewItems } from "./sync/runner.js";
 import { enrichYoutubeDates } from "./sync/youtube.js";
 import { PLATFORMS } from "./sync/model.js";
-import type { HttpGet, Platform, PlatformResult } from "./sync/model.js";
+import type { CollectedItem, HttpGet, Platform, PlatformResult } from "./sync/model.js";
+
+export interface SyncPlatformProgress {
+  platform: Platform;
+  ok: boolean;
+  added: number;
+  error?: string;
+}
+
+export interface SyncProgress {
+  running: boolean;
+  current?: Platform;
+  done: SyncPlatformProgress[];
+  startedAt?: string;
+  finishedAt?: string;
+}
 
 export default class FavCollectorPlugin extends Plugin {
   settings!: FavSettings;
   syncing = false;
   private statusEl?: HTMLElement;
+  /** 同步进度（面板订阅，实时重渲染）。 */
+  syncProgress: SyncProgress = { running: false, done: [] };
+  private progressListeners = new Set<() => void>();
+
+  onSyncProgress(cb: () => void): () => void {
+    this.progressListeners.add(cb);
+    return () => {
+      this.progressListeners.delete(cb);
+    };
+  }
+
+  private emitProgress(): void {
+    for (const cb of [...this.progressListeners]) {
+      try {
+        cb();
+      } catch {
+        // 忽略订阅者异常
+      }
+    }
+  }
 
   async onload(): Promise<void> {
     this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) ?? {}) };
@@ -88,24 +122,14 @@ export default class FavCollectorPlugin extends Plugin {
       return;
     }
     this.syncing = true;
+    this.syncProgress = { running: true, current: platform, done: [], startedAt: new Date().toISOString() };
+    this.emitProgress();
     try {
-      new Notice(`同步 ${platform} 中…（看底部状态栏进度）`);
+      new Notice(`同步 ${platform} 中…（总览页看实时进度）`);
       this.setStatus(`Fav: 同步 ${platform}…`);
       const result = await syncPlatform(platform, this.runnerSettings(), this.http());
       const { favIds, urls } = await this.scanExisting();
-      const va = this.app.vault;
-      const report = await writeNewItems(
-        {
-          exists: (p) => va.adapter.exists(p),
-          mkdir: (p) => va.createFolder(p).then(() => undefined).catch(() => undefined),
-          write: (p, c) => va.create(p, c).then(() => undefined),
-        },
-        favIds,
-        urls,
-        [result],
-        (items) =>
-          enrichYoutubeDates({ ytdlpPath: this.runnerSettings().ytdlpPath, cookieFile: this.runnerSettings().ytCookieFile }, items),
-      );
+      const report = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
       this.settings.lastSync[platform] = {
         at: new Date().toISOString(),
         ok: result.ok,
@@ -113,11 +137,31 @@ export default class FavCollectorPlugin extends Plugin {
         error: result.error,
       };
       await this.saveSettings();
+      this.syncProgress.running = false;
+      this.syncProgress.current = undefined;
+      this.syncProgress.done = [{ platform, ok: result.ok, added: report.added, error: result.error }];
+      this.syncProgress.finishedAt = new Date().toISOString();
       this.setStatus(result.ok ? `Fav: ${platform} +${report.added}` : `Fav: ${platform} 失败`);
+      this.emitProgress();
       new Notice(result.ok ? `${platform} 同步完成，新增 ${report.added} 条` : `${platform} 失败：${result.error}`);
     } finally {
       this.syncing = false;
     }
+  }
+
+  private fsAdapter() {
+    const va = this.app.vault;
+    return {
+      exists: (p: string) => va.adapter.exists(p),
+      mkdir: (p: string) => va.createFolder(p).then(() => undefined).catch(() => undefined),
+      write: (p: string, c: string) => va.create(p, c).then(() => undefined),
+    };
+  }
+
+  private ytEnrich() {
+    const s = this.runnerSettings();
+    return (items: CollectedItem[]) =>
+      enrichYoutubeDates({ ytdlpPath: s.ytdlpPath, cookieFile: s.ytCookieFile }, items);
   }
 
   async syncAll(): Promise<void> {
@@ -126,54 +170,52 @@ export default class FavCollectorPlugin extends Plugin {
       return;
     }
     this.syncing = true;
+    this.syncProgress = { running: true, done: [], startedAt: new Date().toISOString() };
+    this.emitProgress();
     try {
-      new Notice("开始同步全部平台…");
+      new Notice("开始同步全部平台…（总览页看实时进度）");
       const http = this.http();
       const settings = this.runnerSettings();
-      const results: PlatformResult[] = [];
-      let done = 0;
-      for (const p of PLATFORMS) {
-        this.setStatus(`Fav: 同步 ${p}（${done + 1}/${PLATFORMS.length}）…`);
-        try {
-          results.push(await syncPlatform(p, settings, http));
-        } catch (e) {
-          results.push({ platform: p, ok: false, items: [], error: (e as Error).message });
-        }
-        done += 1;
-      }
-      this.setStatus("Fav: 写笔记…");
       const { favIds, urls } = await this.scanExisting();
-      const va = this.app.vault;
-      const report = await writeNewItems(
-        {
-          exists: (p) => va.adapter.exists(p),
-          mkdir: (p) => va.createFolder(p).then(() => undefined).catch(() => undefined),
-          write: (p, c) => va.create(p, c).then(() => undefined),
-        },
-        favIds,
-        urls,
-        results,
-        (items) => enrichYoutubeDates({ ytdlpPath: settings.ytdlpPath, cookieFile: settings.ytCookieFile }, items),
-      );
-      const now = new Date().toISOString();
-      for (const r of results) {
-        this.settings.lastSync[r.platform] = {
-          at: now,
-          ok: r.ok,
-          added: 0,
-          error: r.error,
-        };
+      let totalAdded = 0;
+      let idx = 0;
+      for (const p of PLATFORMS) {
+        idx += 1;
+        this.syncProgress.current = p;
+        this.setStatus(`Fav: 同步 ${p}（${idx}/${PLATFORMS.length}）…`);
+        this.emitProgress();
+        let result: PlatformResult;
+        try {
+          result = await syncPlatform(p, settings, http);
+        } catch (e) {
+          result = { platform: p, ok: false, items: [], error: (e as Error).message };
+        }
+        let added = 0;
+        if (result.ok) {
+          try {
+            const rep = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
+            added = rep.added;
+            totalAdded += added;
+          } catch (e) {
+            result = { platform: p, ok: false, items: [], error: `写笔记失败：${(e as Error).message}` };
+          }
+        }
+        this.syncProgress.done.push({ platform: p, ok: result.ok, added, error: result.error });
+        this.settings.lastSync[p] = { at: new Date().toISOString(), ok: result.ok, added, error: result.error };
+        await this.saveSettings();
+        this.emitProgress();
       }
-      await this.saveSettings();
-      const okCount = results.filter((r) => r.ok).length;
-      const failed = results.filter((r) => !r.ok).map((r) => r.platform);
-      this.setStatus(
-        failed.length === 0 ? `Fav: 完成 +${report.added}` : `Fav: ${failed.join("、")}失败`,
-      );
+      this.syncProgress.running = false;
+      this.syncProgress.current = undefined;
+      this.syncProgress.finishedAt = new Date().toISOString();
+      const failed = this.syncProgress.done.filter((d) => !d.ok).map((d) => d.platform);
+      const okCount = this.syncProgress.done.length - failed.length;
+      this.setStatus(failed.length === 0 ? `Fav: 完成 +${totalAdded}` : `Fav: ${failed.join("、")}失败`);
+      this.emitProgress();
       new Notice(
         failed.length === 0
-          ? `同步完成：${PLATFORMS.length}/${PLATFORMS.length} 平台，新增 ${report.added} 条`
-          : `同步完成 ${okCount}/${PLATFORMS.length}，新增 ${report.added} 条；失败：${failed.join("、")}（看总览红卡重试）`,
+          ? `同步完成：${PLATFORMS.length}/${PLATFORMS.length} 平台，新增 ${totalAdded} 条`
+          : `同步完成 ${okCount}/${PLATFORMS.length}，新增 ${totalAdded} 条；失败：${failed.join("、")}（看总览红卡重试）`,
       );
       await this.openDashboard();
     } finally {

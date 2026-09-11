@@ -11,6 +11,8 @@ export const VIEW_TYPE_FAV_DASHBOARD = "fav-collector-dashboard";
 export class FavDashboardView extends ItemView {
   private filter: Platform | "all" = "all";
   private folderFilter = "all";
+  private unsubProgress?: () => void;
+  private lastRenderAt = 0;
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -31,7 +33,69 @@ export class FavDashboardView extends ItemView {
     await this.render();
   }
 
+  onunload(): void {
+    this.unsubProgress?.();
+    this.unsubProgress = undefined;
+  }
+
+  private clock(iso?: string): string {
+    if (!iso) return "";
+    const d = new Date(iso);
+    const p = (n: number) => n.toString().padStart(2, "0");
+    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  /** 同步进度区：跑的时候实时刷新 intention, 跑完留成绩单。 */
+  private renderProgress(el: HTMLElement): void {
+    const sp = this.plugin.syncProgress;
+    const box = el.createDiv({ cls: "fav-syncgress" });
+    if (sp.running) {
+      const doneMap = new Map(sp.done.map((d) => [d.platform, d]));
+      const parts: string[] = [];
+      for (const p of PLATFORMS) {
+        const d = doneMap.get(p);
+        if (d) parts.push(`${d.ok ? "✓" : "✗"} ${PLATFORM_LABEL[p]}${d.ok ? ` +${d.added}` : ""}`);
+        else if (sp.current === p) parts.push(`▶ ${PLATFORM_LABEL[p]}…`);
+        else parts.push(`⏳ ${PLATFORM_LABEL[p]}`);
+      }
+      box.createDiv({ cls: "fav-syncgress-title", text: `同步中（${this.clock(sp.startedAt)} 开始）` });
+      box.createDiv({ cls: "fav-syncgress-line", text: parts.join(" · ") });
+    } else if (sp.done.length > 0) {
+      const okN = sp.done.filter((d) => d.ok).length;
+      box.createDiv({
+        cls: "fav-syncgress-title",
+        text: `上次同步 ${this.clock(sp.finishedAt)}：${okN}/${sp.done.length} 成功`,
+      });
+      box.createDiv({
+        cls: "fav-syncgress-line",
+        text: sp.done.map((d) => `${d.ok ? "✓" : "✗"} ${PLATFORM_LABEL[d.platform]} +${d.added}`).join(" · "),
+      });
+    } else {
+      // 本次会话没跑过：读上次持久化成绩
+      const last = this.plugin.settings.lastSync;
+      const keys = PLATFORMS.filter((p) => last[p]);
+      if (keys.length === 0) {
+        box.createDiv({ cls: "fav-status", text: "还没同步过，点左上「同步全部」开始" });
+        return;
+      }
+      box.createDiv({ cls: "fav-syncgress-title", text: "上次同步成绩" });
+      box.createDiv({
+        cls: "fav-syncgress-line",
+        text: keys.map((p) => `${last[p].ok ? "✓" : "✗"} ${PLATFORM_LABEL[p]} ${this.clock(last[p].at)} +${last[p].added}`).join(" · "),
+      });
+    }
+  }
+
   async render(): Promise<void> {
+    this.unsubProgress?.();
+    this.unsubProgress = this.plugin.onSyncProgress(() => {
+      // 进度事件节流：重读全库很贵，2 秒内最多刷一次
+      const now = Date.now();
+      if (now - this.lastRenderAt < 2000) return;
+      this.lastRenderAt = now;
+      void this.render();
+    });
+    this.lastRenderAt = Date.now();
     const el = this.containerEl.children[1] as HTMLElement;
     el.empty();
     el.addClass("fav-dashboard");
@@ -48,6 +112,9 @@ export class FavDashboardView extends ItemView {
       else new Notice("Fav Collector 文件夹还不存在，先点一次同步");
     };
     const status = bar.createSpan({ cls: "fav-status" });
+
+    // 同步进度（实时）
+    this.renderProgress(el);
 
     // 红卡：上次失败的平台
     const last = this.plugin.settings.lastSync;
