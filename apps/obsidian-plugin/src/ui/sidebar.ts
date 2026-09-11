@@ -1,5 +1,6 @@
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
 import type { EngineClient } from "../comm/socket-client.js";
+import { VIEW_TYPE_OMNI_DASHBOARD } from "./dashboard.js";
 
 export const VIEW_TYPE_OMNI = "omni-collector-view";
 
@@ -16,6 +17,7 @@ export interface OmniController {
   refreshComments(): Promise<void>;
   generateMarkdown(): Promise<void>;
   runGroupRecognition(): Promise<void>;
+  ensureCover(url: string): Promise<string | null>;
 }
 
 const PLATFORMS: Array<{ key: string; label: string }> = [
@@ -121,6 +123,10 @@ export class OmniSidebarView extends ItemView {
     container.createEl("div", { text: "内容", cls: "omni-section-title" });
     const contentRow = container.createEl("div", { cls: "omni-btn-grid" });
     this.addActionButton(contentRow, "收藏列表", () => this.ctrl.openCollectionList());
+    this.addActionButton(contentRow, "总览", () => {
+      const leaf = this.app.workspace.getLeaf(false);
+      void leaf.setViewState({ type: VIEW_TYPE_OMNI_DASHBOARD, active: true });
+    });
     this.addActionButton(contentRow, "生成 Markdown", () => this.withBusy(async () => { await this.ctrl.generateMarkdown(); }));
     this.addActionButton(contentRow, "分组识别", () => this.withBusy(async () => { await this.ctrl.runGroupRecognition(); }));
     this.addActionButton(contentRow, "Tag/Topic 管理", () => this.ctrl.openTagTopic());

@@ -9,6 +9,7 @@ import { OmniSidebarView, VIEW_TYPE_OMNI, type OmniController } from "./ui/sideb
 import { OmniTagTopicView, VIEW_TYPE_OMNI_TAGS, type TagTopicSource } from "./ui/tag-topic.js";
 import { OmniCollectionListView, VIEW_TYPE_OMNI_LIST, type ListDataSource } from "./ui/collection-list.js";
 import { OmniCollectionDetailView, VIEW_TYPE_OMNI_DETAIL, type DetailDataSource } from "./ui/collection-detail.js";
+import { FavDashboardView, VIEW_TYPE_OMNI_DASHBOARD } from "./ui/dashboard.js";
 import { MarkdownBuilder, sanitizeFilename } from "./markdown/markdown-builder.js";
 import { dailyCapReached, isSyncDue } from "./sync/sync-scheduler.js";
 
@@ -87,7 +88,19 @@ export default class OmniCollectorPlugin extends Plugin {
       };
       return new OmniTagTopicView(leaf, source);
     });
+    this.registerView(
+      VIEW_TYPE_OMNI_DASHBOARD,
+      (leaf) => new FavDashboardView(leaf, this.engine, this.controller),
+    );
     this.addSettingTab(new OmniSettingTab(this.app, this));
+    this.addCommand({
+      id: "open-dashboard",
+      name: "打开总览",
+      callback: () => {
+        const leaf = this.app.workspace.getLeaf(false);
+        void leaf.setViewState({ type: VIEW_TYPE_OMNI_DASHBOARD, active: true });
+      },
+    });
     this.addCommand({
       id: "open-tag-topic-manager",
       name: "打开 Tag/Topic 管理",
@@ -234,6 +247,7 @@ export default class OmniCollectorPlugin extends Plugin {
       deepSyncPlatform: (platform) => this.deepSyncPlatform(platform),
       refreshComments: () => this.refreshCommentsAll(),
       generateMarkdown: () => this.generateCollectionMarkdown(),
+      ensureCover: (url) => this.ensureCover(url),
       runGroupRecognition: async () => {
         const res = await this.engine.runAutoGroup();
         const candidates = (res.payload?.candidates ?? []) as Array<{ name: string; size: number; reason: string }>;
