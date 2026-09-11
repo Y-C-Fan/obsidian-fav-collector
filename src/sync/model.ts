@@ -1,14 +1,15 @@
 /** Local-only Fav Collector: shared model. No engine, no database. */
 
-export type Platform = "bilibili" | "youtube" | "zhihu" | "x";
+export type Platform = "bilibili" | "youtube" | "zhihu" | "x" | "github";
 
-export const PLATFORMS: Platform[] = ["bilibili", "youtube", "zhihu", "x"];
+export const PLATFORMS: Platform[] = ["bilibili", "youtube", "zhihu", "x", "github"];
 
 export const PLATFORM_LABEL: Record<Platform, string> = {
   bilibili: "B站",
   youtube: "YouTube",
   zhihu: "知乎",
   x: "X",
+  github: "GitHub",
 };
 
 export interface CollectedItem {
@@ -39,6 +40,9 @@ export interface PlatformResult {
 
 /** 可注入的 HTTP GET（插件侧用 Obsidian requestUrl，单测用假函数）。 */
 export type HttpGet = (url: string, headers?: Record<string, string>) => Promise<unknown>;
+
+/** 可注入的子进程执行（gh / yt-dlp，单测用假函数）。 */
+export type RunFn = (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string }>;
 
 export const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 

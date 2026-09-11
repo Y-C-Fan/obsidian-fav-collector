@@ -1,5 +1,6 @@
 /** 编排：各平台抓取 → 对照现存笔记去重 → 只写新文件。跑挂一个平台不影响其他。 */
 import { collectBilibili } from "./bilibili.js";
+import { collectGithub } from "./github.js";
 import { collectYoutube, enrichYoutubeDates } from "./youtube.js";
 import { collectZhihu } from "./zhihu.js";
 import { collectX } from "./x.js";
@@ -40,6 +41,9 @@ export async function syncPlatform(
         break;
       case "x":
         items = await collectX(http, settings.xCookies);
+        break;
+      case "github":
+        items = await collectGithub();
         break;
     }
     return { platform, ok: true, items };

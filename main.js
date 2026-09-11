@@ -78,7 +78,7 @@ var FavSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     containerEl.createEl("h3", { text: "\u8FDE\u901A\u6027\u6D4B\u8BD5" });
-    for (const p of ["bilibili", "youtube", "zhihu", "x"]) {
+    for (const p of ["bilibili", "youtube", "zhihu", "x", "github"]) {
       new import_obsidian.Setting(containerEl).setName(`\u6D4B\u8BD5 ${p}`).addButton(
         (b) => b.setButtonText("\u6D4B\u8BD5").onClick(async () => {
           new import_obsidian.Notice(`\u6D4B\u8BD5 ${p} \u4E2D\u2026`);
@@ -171,12 +171,13 @@ function cardFromNote(path, md) {
 }
 
 // src/sync/model.ts
-var PLATFORMS = ["bilibili", "youtube", "zhihu", "x"];
+var PLATFORMS = ["bilibili", "youtube", "zhihu", "x", "github"];
 var PLATFORM_LABEL = {
   bilibili: "B\u7AD9",
   youtube: "YouTube",
   zhihu: "\u77E5\u4E4E",
-  x: "X"
+  x: "X",
+  github: "GitHub"
 };
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function toDateOnly(v) {
@@ -399,13 +400,56 @@ async function collectBilibili(http, cookieRaw) {
   return items;
 }
 
-// src/sync/youtube.ts
+// src/sync/github.ts
 var import_node_child_process = require("node:child_process");
-var YoutubeError = class extends Error {
+var GithubError = class extends Error {
 };
 function defaultRun(cmd, args) {
   return new Promise((resolve, reject) => {
     (0, import_node_child_process.execFile)(cmd, args, { timeout: 3e5, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        reject(new GithubError(`gh \u5931\u8D25\uFF08\u5148\u8DD1 gh auth login\uFF09\uFF1A${`${stderr || err.message}`.slice(0, 200)}`));
+        return;
+      }
+      resolve({ stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+    });
+  });
+}
+function parseStarredTsv(tsv) {
+  const items = [];
+  for (const line of tsv.split("\n")) {
+    if (!line.trim()) continue;
+    const [starredAt, full, url, desc, lang, avatar] = line.split("	");
+    if (!full || !url) continue;
+    const it = makeItem("github", full, url, full.slice(0, 150));
+    it.author = full.split("/")[0];
+    it.description = [desc && desc !== "null" ? desc : "", lang && lang !== "null" ? `\uFF08${lang}\uFF09` : ""].join("").slice(0, 200) || void 0;
+    it.coverUrl = avatar && avatar !== "null" ? avatar : void 0;
+    it.publishedAt = toDateOnly(starredAt);
+    items.push(it);
+  }
+  return items;
+}
+async function collectGithub(run = defaultRun) {
+  const { stdout } = await run("gh", [
+    "api",
+    "--paginate",
+    "user/starred?per_page=100",
+    "-H",
+    "Accept: application/vnd.github.v3.star+json",
+    "--jq",
+    '.[] | [.starred_at, .repo.full_name, .repo.html_url, (.repo.description // ""), (.repo.language // ""), .repo.owner.avatar_url] | @tsv'
+  ]);
+  return parseStarredTsv(stdout);
+}
+
+// src/sync/youtube.ts
+var import_node_child_process2 = require("node:child_process");
+var YoutubeError = class extends Error {
+};
+function defaultRun2(cmd, args) {
+  return new Promise((resolve, reject) => {
+    (0, import_node_child_process2.execFile)(cmd, args, { timeout: 3e5, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
       if (err) {
         const msg = `${stderr || err.message}`.slice(0, 300);
         reject(new YoutubeError(`yt-dlp \u5931\u8D25: ${msg}`));
@@ -438,7 +482,7 @@ function parseFlatList(stdout, listId) {
   return items;
 }
 async function collectYoutube(opts) {
-  const run = opts.run ?? defaultRun;
+  const run = opts.run ?? defaultRun2;
   const items = [];
   for (const listId of ["WL", "LL"]) {
     const { stdout } = await run(opts.ytdlpPath, [
@@ -458,7 +502,7 @@ async function collectYoutube(opts) {
   return items;
 }
 async function enrichYoutubeDates(opts, items) {
-  const run = opts.run ?? defaultRun;
+  const run = opts.run ?? defaultRun2;
   const withId = items.filter((it) => it.videoId);
   if (withId.length === 0) return;
   const urls = withId.map((it) => it.videoId).map((id) => `https://www.youtube.com/watch?v=${id}`);
@@ -658,6 +702,9 @@ async function syncPlatform(platform, settings, http) {
       case "x":
         items = await collectX(http, settings.xCookies);
         break;
+      case "github":
+        items = await collectGithub();
+        break;
     }
     return { platform, ok: true, items };
   } catch (e) {
@@ -789,7 +836,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       const http = this.http();
       const settings = this.runnerSettings();
       const results = [];
-      for (const p of ["bilibili", "youtube", "zhihu", "x"]) {
+      for (const p of PLATFORMS) {
         try {
           results.push(await syncPlatform(p, settings, http));
         } catch (e) {
@@ -822,7 +869,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       const okCount = results.filter((r) => r.ok).length;
       const failed = results.filter((r) => !r.ok).map((r) => r.platform);
       new import_obsidian3.Notice(
-        failed.length === 0 ? `\u540C\u6B65\u5B8C\u6210\uFF1A4/4 \u5E73\u53F0\uFF0C\u65B0\u589E ${report.added} \u6761` : `\u540C\u6B65\u5B8C\u6210 ${okCount}/4\uFF0C\u65B0\u589E ${report.added} \u6761\uFF1B\u5931\u8D25\uFF1A${failed.join("\u3001")}\uFF08\u770B\u603B\u89C8\u7EA2\u5361\u91CD\u8BD5\uFF09`
+        failed.length === 0 ? `\u540C\u6B65\u5B8C\u6210\uFF1A${PLATFORMS.length}/${PLATFORMS.length} \u5E73\u53F0\uFF0C\u65B0\u589E ${report.added} \u6761` : `\u540C\u6B65\u5B8C\u6210 ${okCount}/${PLATFORMS.length}\uFF0C\u65B0\u589E ${report.added} \u6761\uFF1B\u5931\u8D25\uFF1A${failed.join("\u3001")}\uFF08\u770B\u603B\u89C8\u7EA2\u5361\u91CD\u8BD5\uFF09`
       );
       await this.openDashboard();
     } finally {

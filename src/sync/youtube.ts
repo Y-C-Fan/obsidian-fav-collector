@@ -1,11 +1,9 @@
 /** YouTube：Watch Later + Liked，yt-dlp 子进程 flat 抓取（标题级增量才补日期）。 */
 import { execFile } from "node:child_process";
 import { makeItem } from "./model.js";
-import type { CollectedItem } from "./model.js";
+import type { CollectedItem, RunFn } from "./model.js";
 
 export class YoutubeError extends Error {}
-
-export type RunFn = (cmd: string, args: string[]) => Promise<{ stdout: string; stderr: string }>;
 
 function defaultRun(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {

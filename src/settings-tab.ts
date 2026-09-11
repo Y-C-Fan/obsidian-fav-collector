@@ -57,7 +57,7 @@ export class FavSettingTab extends PluginSettingTab {
       );
 
     containerEl.createEl("h3", { text: "连通性测试" });
-    for (const p of ["bilibili", "youtube", "zhihu", "x"] as const) {
+    for (const p of ["bilibili", "youtube", "zhihu", "x", "github"] as const) {
       new Setting(containerEl)
         .setName(`测试 ${p}`)
         .addButton((b) =>

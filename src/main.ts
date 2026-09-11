@@ -9,6 +9,7 @@ import { FavDashboardView, VIEW_TYPE_FAV_DASHBOARD } from "./ui/dashboard.js";
 import { parseFrontmatter } from "./markdown/writer.js";
 import { syncPlatform, writeNewItems } from "./sync/runner.js";
 import { enrichYoutubeDates } from "./sync/youtube.js";
+import { PLATFORMS } from "./sync/model.js";
 import type { HttpGet, Platform, PlatformResult } from "./sync/model.js";
 
 export default class FavCollectorPlugin extends Plugin {
@@ -120,7 +121,7 @@ export default class FavCollectorPlugin extends Plugin {
       const http = this.http();
       const settings = this.runnerSettings();
       const results: PlatformResult[] = [];
-      for (const p of ["bilibili", "youtube", "zhihu", "x"] as Platform[]) {
+      for (const p of PLATFORMS) {
         try {
           results.push(await syncPlatform(p, settings, http));
         } catch (e) {
@@ -154,8 +155,8 @@ export default class FavCollectorPlugin extends Plugin {
       const failed = results.filter((r) => !r.ok).map((r) => r.platform);
       new Notice(
         failed.length === 0
-          ? `同步完成：4/4 平台，新增 ${report.added} 条`
-          : `同步完成 ${okCount}/4，新增 ${report.added} 条；失败：${failed.join("、")}（看总览红卡重试）`,
+          ? `同步完成：${PLATFORMS.length}/${PLATFORMS.length} 平台，新增 ${report.added} 条`
+          : `同步完成 ${okCount}/${PLATFORMS.length}，新增 ${report.added} 条；失败：${failed.join("、")}（看总览红卡重试）`,
       );
       await this.openDashboard();
     } finally {
