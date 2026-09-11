@@ -48,6 +48,7 @@ export function parseFlatList(stdout: string, listId: "WL" | "LL"): CollectedIte
     if (!m) continue;
     const it = makeItem("youtube", `${listId}_${m[1]}`, `https://www.youtube.com/watch?v=${m[1]}`, (m[2] || "(无标题)").slice(0, 150));
     it.watchLater = listId === "WL";
+    it.coverUrl = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
     (it as CollectedItem & { videoId?: string }).videoId = m[1];
     items.push(it);
   }

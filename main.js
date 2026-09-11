@@ -155,6 +155,11 @@ function cardFromNote(path, md) {
   if (!fm.platform || !fm.url) return null;
   const headings = [...md.matchAll(/^# (.+)$/gm)].map((m) => m[1]).filter((h) => h !== "Fav Collector System Zone");
   const title = (headings[0] ?? fm.url).replace(/\\#/g, "#");
+  let cover = fm.cover;
+  if (!cover && fm.platform === "youtube") {
+    const m = fm.url.match(/watch\?v=([\w-]{6,})/);
+    if (m) cover = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+  }
   let description;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || void 0;
@@ -166,7 +171,7 @@ function cardFromNote(path, md) {
     author: fm.author,
     publishedAt: fm.published_at,
     folder: fm.folder,
-    cover: fm.cover,
+    cover,
     description
   };
 }
@@ -270,9 +275,13 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
     };
     mkFilter("all", "\u5168\u90E8");
     for (const p of PLATFORMS) mkFilter(p, PLATFORM_LABEL[p]);
-    const cards = await this.loadCards();
+    const { cards, scanned, skipped } = await this.loadCards();
     const shown = cards.filter((c) => this.filter === "all" || c.platform === this.filter);
-    status.setText(`\u5171 ${cards.length} \u6761${this.filter !== "all" ? `\uFF08${PLATFORM_LABEL[this.filter]} ${shown.length} \u6761\uFF09` : ""}`);
+    const now = /* @__PURE__ */ new Date();
+    const stamp = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+    status.setText(
+      `\u5171 ${cards.length} \u6761${this.filter !== "all" ? `\uFF08${PLATFORM_LABEL[this.filter]} ${shown.length} \u6761\uFF09` : ""} \xB7 \u626B\u63CF ${scanned} \u6587\u4EF6${skipped > 0 ? `\uFF08\u8DF3\u8FC7 ${skipped} \u65E0\u5143\u6570\u636E\uFF09` : ""} \xB7 \u66F4\u65B0\u4E8E ${stamp}`
+    );
     const grid = el.createDiv({ cls: "fav-cards" });
     for (const c of shown.slice(0, 500)) {
       const card = grid.createDiv({ cls: "fav-card" });
@@ -301,16 +310,19 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
   async loadCards() {
     const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith("Fav Collector/"));
     const out = [];
+    let skipped = 0;
     for (const f of files) {
       try {
         const md = await this.app.vault.read(f);
         const card = cardFromNote(f.path, md);
         if (card) out.push(card);
+        else skipped += 1;
       } catch {
+        skipped += 1;
       }
     }
     out.sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
-    return out;
+    return { cards: out, scanned: files.length, skipped };
   }
 };
 
@@ -478,6 +490,7 @@ function parseFlatList(stdout, listId) {
     if (!m) continue;
     const it = makeItem("youtube", `${listId}_${m[1]}`, `https://www.youtube.com/watch?v=${m[1]}`, (m[2] || "(\u65E0\u6807\u9898)").slice(0, 150));
     it.watchLater = listId === "WL";
+    it.coverUrl = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
     it.videoId = m[1];
     items.push(it);
   }

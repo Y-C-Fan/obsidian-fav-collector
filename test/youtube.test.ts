@@ -8,6 +8,7 @@ describe("youtube", () => {
     expect(items[0].url).toBe("https://www.youtube.com/watch?v=abc");
     expect(items[0].watchLater).toBe(true);
     expect(items[0].favId).toBe("youtube:WL_abc");
+    expect(items[0].coverUrl).toBe("https://i.ytimg.com/vi/abc/hqdefault.jpg");
   });
 
   it("collectYoutube collects WL + LL via fake run", async () => {

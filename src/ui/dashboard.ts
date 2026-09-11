@@ -75,9 +75,13 @@ export class FavDashboardView extends ItemView {
     for (const p of PLATFORMS) mkFilter(p, PLATFORM_LABEL[p]);
 
     // 卡片
-    const cards = await this.loadCards();
+    const { cards, scanned, skipped } = await this.loadCards();
     const shown = cards.filter((c) => this.filter === "all" || c.platform === this.filter);
-    status.setText(`共 ${cards.length} 条${this.filter !== "all" ? `（${PLATFORM_LABEL[this.filter as Platform]} ${shown.length} 条）` : ""}`);
+    const now = new Date();
+    const stamp = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
+    status.setText(
+      `共 ${cards.length} 条${this.filter !== "all" ? `（${PLATFORM_LABEL[this.filter as Platform]} ${shown.length} 条）` : ""} · 扫描 ${scanned} 文件${skipped > 0 ? `（跳过 ${skipped} 无元数据）` : ""} · 更新于 ${stamp}`,
+    );
     const grid = el.createDiv({ cls: "fav-cards" });
     for (const c of shown.slice(0, 500)) {
       const card = grid.createDiv({ cls: "fav-card" });
@@ -106,19 +110,21 @@ export class FavDashboardView extends ItemView {
     else new Notice(`文件不存在：${path}`);
   }
 
-  private async loadCards(): Promise<CardData[]> {
+  private async loadCards(): Promise<{ cards: CardData[]; scanned: number; skipped: number }> {
     const files = this.app.vault.getMarkdownFiles().filter((f) => f.path.startsWith("Fav Collector/"));
     const out: CardData[] = [];
+    let skipped = 0;
     for (const f of files) {
       try {
         const md = await this.app.vault.read(f);
         const card = cardFromNote(f.path, md);
         if (card) out.push(card);
+        else skipped += 1;
       } catch {
-        // 单个文件读失败跳过
+        skipped += 1;
       }
     }
     out.sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""));
-    return out;
+    return { cards: out, scanned: files.length, skipped };
   }
 }

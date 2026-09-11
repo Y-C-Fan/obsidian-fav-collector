@@ -90,6 +90,12 @@ export function cardFromNote(path: string, md: string): CardData | null {
   // 旧版笔记第一个 H1 是系统区标记行，跳过它取真正的标题
   const headings = [...md.matchAll(/^# (.+)$/gm)].map((m) => m[1]).filter((h) => h !== "Fav Collector System Zone");
   const title = (headings[0] ?? fm.url).replace(/\\#/g, "#");
+  let cover = fm.cover;
+  if (!cover && fm.platform === "youtube") {
+    // flat 抓取没有缩略图：yt 封面 URL 是确定性规则，直接拼
+    const m = fm.url.match(/watch\?v=([\w-]{6,})/);
+    if (m) cover = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
+  }
   let description: string | undefined;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || undefined;
@@ -101,7 +107,7 @@ export function cardFromNote(path: string, md: string): CardData | null {
     author: fm.author,
     publishedAt: fm.published_at,
     folder: fm.folder,
-    cover: fm.cover,
+    cover,
     description,
   };
 }
