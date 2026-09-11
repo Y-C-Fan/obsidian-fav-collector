@@ -201,14 +201,14 @@ export class TaskService {
       const accounts = new AccountRepository(this.db);
       accounts.getOrCreate(platform);
       accounts.setStatus(platform, "active");
-      // YouTube 同步走 yt-dlp --cookies 文件：导入成功即同步生成，免手工维护
+      // YouTube 同步走 yt-dlp --cookies 文件：导入成功即同步生成，免手工维护。
+      // 原子写入（tmp+rename）：避免同步中的 yt-dlp 读到半截文件而被判未登录（WL 不存在）。
       let ytdlCookies = false;
       if (platform === "youtube") {
-        fs.writeFileSync(
-          path.join(this.opts.dataDir, "ytdl_cookies.txt"),
-          toNetscapeCookies(parsed),
-          "utf8",
-        );
+        const target = path.join(this.opts.dataDir, "ytdl_cookies.txt");
+        const tmp = `${target}.${process.pid}.tmp`;
+        fs.writeFileSync(tmp, toNetscapeCookies(parsed), "utf8");
+        fs.renameSync(tmp, target);
         ytdlCookies = true;
       }
       return complete(msg.request_id, { task: "cookie_import", platform, cookie_count: parsed.length, ytdl_cookies: ytdlCookies });

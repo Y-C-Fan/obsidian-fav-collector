@@ -39,6 +39,21 @@ export type { InitSyncPlan } from "./sync/init-sync-planner.js";
 
 export const PACKAGE_NAME = "@omni/engine";
 
+/** 打包时由 esbuild define 注入（见 esbuild.config.mjs，真相源=obsidian-plugin/manifest.json）。 */
+declare const __ENGINE_VERSION__: string | undefined;
+export const ENGINE_VERSION: string =
+  typeof __ENGINE_VERSION__ !== "undefined" ? __ENGINE_VERSION__ : "dev";
+
+/** 启动即在数据目录留下版本戳（插件自更新比对用；失败不阻塞启动）。 */
+export function stampEngineVersion(dataDir: string): void {
+  try {
+    fs.mkdirSync(path.join(dataDir, "engine"), { recursive: true });
+    fs.writeFileSync(path.join(dataDir, "engine", ".version"), `${ENGINE_VERSION}\n`, "utf8");
+  } catch {
+    // 忽略
+  }
+}
+
 /**
  * Engine 进程入口（T-107 可启动版本）：解析 --data-dir / --socket / --ws-port / --ws-token，
  * 初始化 SQLite 后启动 EngineCommServer，收到 SIGINT/SIGTERM 后广播 ENGINE_CLOSING 并退出。
@@ -55,6 +70,7 @@ async function main(): Promise<void> {
   if (!dataDir) {
     throw new Error("missing required argument: --data-dir <path>");
   }
+  stampEngineVersion(dataDir);
   const migrationsDir = resolveMigrationsDir();
 
   // 一次性命令：展开单条收藏详情（Skill `expand`，给 Coding Agent 调用，无需启动常驻服务）。

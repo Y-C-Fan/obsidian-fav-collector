@@ -11,6 +11,7 @@ import { OmniCollectionListView, VIEW_TYPE_OMNI_LIST, type ListDataSource } from
 import { OmniCollectionDetailView, VIEW_TYPE_OMNI_DETAIL, type DetailDataSource } from "./ui/collection-detail.js";
 import { FavDashboardView, VIEW_TYPE_OMNI_DASHBOARD } from "./ui/dashboard.js";
 import { MarkdownBuilder, notePathFor, sanitizeFilename } from "./markdown/markdown-builder.js";
+import { ensureEngineUpToDate } from "./sync/engine-updater.js";
 import { dailyCapReached, isSyncDue } from "./sync/sync-scheduler.js";
 
 export default class OmniCollectorPlugin extends Plugin {
@@ -29,13 +30,41 @@ export default class OmniCollectorPlugin extends Plugin {
       this.pluginSettings.engineScript = path.join(
         this.pluginSettings.dataDir,
         "engine",
-        "index.js",
+        "engine.cjs",
       );
     }
     if (!this.pluginSettings.wsToken) {
       this.pluginSettings.wsToken = randomUUID();
     }
     await saveSettings(this, this.pluginSettings);
+    // Engine 自更新（0.7.6）：BRAT 只更新插件文件，dataDir 的 engine.cjs 需插件自己对齐版本
+    try {
+      const pluginDir = `${this.app.vault.configDir}/plugins/omni-collector`;
+      const va = this.app.vault.adapter;
+      const res = await ensureEngineUpToDate(
+        {
+          exists: (p) => va.exists(p),
+          read: (p) => va.read(p),
+          write: (p, c) => va.write(p, c),
+          mkdir: (p) => va.mkdir(p),
+          listFiles: async (p) => {
+            try {
+              const l = await va.list(p);
+              return l.files.map((f) => f.split("/").pop() ?? f);
+            } catch {
+              return [];
+            }
+          },
+        },
+        pluginDir,
+        this.pluginSettings.dataDir,
+      );
+      if (res.status === "updated") {
+        new Notice(`Fav Collector: Engine 已自动更新到 ${res.version}`);
+      }
+    } catch {
+      // 自更新失败不阻塞启动（沿用旧 Engine，出错时看 dataDir/logs/engine.log）
+    }
     this.reloadSyncScheduler();
 
     this.engine = new EngineClient({

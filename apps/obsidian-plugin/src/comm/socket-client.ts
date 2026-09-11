@@ -1,5 +1,6 @@
 import net from "node:net";
 import fs from "node:fs";
+import path from "node:path";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { WebSocket, type RawData } from "ws";
@@ -76,6 +77,29 @@ export class EngineClient {
     const wsPort = this.opts.wsPort ?? (await this.findFreePort());
     const token = new URL(this.opts.wsUrl).searchParams.get("token") ?? "";
     this.wsUrl = `ws://127.0.0.1:${wsPort}/?token=${token}`;
+    // Engine 日志落盘（0.7.6）：之前 stdio 全 ignore，出问题只能靠猜；
+    // 现在 stderr → dataDir/logs/engine.log（超 2MB 轮转），定位只需看尾 50 行。
+    let stdio: Array<"ignore" | number> = ["ignore", "ignore", "ignore"];
+    try {
+      const logDir = path.join(this.opts.dataDir, "logs");
+      fs.mkdirSync(logDir, { recursive: true });
+      const logPath = path.join(logDir, "engine.log");
+      try {
+        if (fs.statSync(logPath).size > 2 * 1024 * 1024) {
+          try {
+            fs.rmSync(`${logPath}.1`, { force: true });
+          } catch {
+            // 忽略
+          }
+          fs.renameSync(logPath, `${logPath}.1`);
+        }
+      } catch {
+        // 无旧日志
+      }
+      stdio = ["ignore", "ignore", fs.openSync(logPath, "a")];
+    } catch {
+      // 日志落盘失败不阻塞拉起
+    }
     this.proc =
       this.opts.spawnEngine?.() ??
       spawn(
@@ -91,7 +115,7 @@ export class EngineClient {
           "--ws-token",
           token,
         ],
-        { stdio: "ignore", windowsHide: true },
+        { stdio, windowsHide: true },
       );
     this.proc.once("exit", () => {
       this.started = false;
