@@ -4,6 +4,7 @@ import { collectGithub } from "./github.js";
 import { collectYoutube, enrichYoutubeDates } from "./youtube.js";
 import { collectZhihu } from "./zhihu.js";
 import { collectX } from "./x.js";
+import { collectXiaoyuzhou, type XyzCreds, type XyzHttp } from "./xiaoyuzhou.js";
 import { buildNote, notePathFor } from "../markdown/writer.js";
 import type { CollectedItem, HttpGet, Platform, PlatformResult } from "./model.js";
 import { PLATFORMS } from "./model.js";
@@ -14,6 +15,15 @@ export interface RunnerSettings {
   zhihuSecret: string;
   ytdlpPath: string;
   ytCookieFile?: string;
+  xyzAccessToken: string;
+  xyzRefreshToken: string;
+  xyzDeviceId: string;
+}
+
+export interface RunnerDeps {
+  http: HttpGet;
+  post: XyzHttp["post"];
+  onXyzCreds?: (next: XyzCreds) => void;
 }
 
 export interface FsAdapter {
@@ -25,8 +35,9 @@ export interface FsAdapter {
 export async function syncPlatform(
   platform: Platform,
   settings: RunnerSettings,
-  http: HttpGet,
+  deps: RunnerDeps,
 ): Promise<PlatformResult> {
+  const { http, post, onXyzCreds } = deps;
   try {
     let items: CollectedItem[];
     switch (platform) {
@@ -44,6 +55,17 @@ export async function syncPlatform(
         break;
       case "github":
         items = await collectGithub();
+        break;
+      case "xiaoyuzhou":
+        items = await collectXiaoyuzhou(
+          { post },
+          {
+            accessToken: settings.xyzAccessToken,
+            refreshToken: settings.xyzRefreshToken || undefined,
+            deviceId: settings.xyzDeviceId || undefined,
+          },
+          onXyzCreds,
+        );
         break;
     }
     return { platform, ok: true, items };

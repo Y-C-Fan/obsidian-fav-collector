@@ -1,8 +1,8 @@
 /** Local-only Fav Collector: shared model. No engine, no database. */
 
-export type Platform = "bilibili" | "youtube" | "zhihu" | "x" | "github";
+export type Platform = "bilibili" | "youtube" | "zhihu" | "x" | "github" | "xiaoyuzhou";
 
-export const PLATFORMS: Platform[] = ["bilibili", "youtube", "zhihu", "x", "github"];
+export const PLATFORMS: Platform[] = ["bilibili", "youtube", "zhihu", "x", "github", "xiaoyuzhou"];
 
 export const PLATFORM_LABEL: Record<Platform, string> = {
   bilibili: "B站",
@@ -10,6 +10,7 @@ export const PLATFORM_LABEL: Record<Platform, string> = {
   zhihu: "知乎",
   x: "X",
   github: "GitHub",
+  xiaoyuzhou: "小宇宙",
 };
 
 export interface CollectedItem {

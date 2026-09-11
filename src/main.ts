@@ -10,6 +10,7 @@ import { syncPlatform, writeNewItems } from "./sync/runner.js";
 import { enrichYoutubeDates } from "./sync/youtube.js";
 import { PLATFORMS } from "./sync/model.js";
 import type { CollectedItem, HttpGet, Platform, PlatformResult } from "./sync/model.js";
+import type { XyzCreds } from "./sync/xiaoyuzhou.js";
 
 export interface SyncPlatformProgress {
   platform: Platform;
@@ -92,11 +93,49 @@ export default class FavCollectorPlugin extends Plugin {
       zhihuSecret: this.settings.zhihuSecret,
       ytdlpPath: this.settings.ytdlpPath || DEFAULT_SETTINGS.ytdlpPath,
       ytCookieFile: this.settings.ytCookieFile || undefined,
+      xyzAccessToken: this.settings.xyzAccessToken,
+      xyzRefreshToken: this.settings.xyzRefreshToken,
+      xyzDeviceId: this.settings.xyzDeviceId,
+    };
+  }
+
+  private xyzPost() {
+    return async (url: string, body: unknown, headers: Record<string, string>) => {
+      const res = await requestUrl({
+        url,
+        method: "POST",
+        headers,
+        body: JSON.stringify(body ?? {}),
+        contentType: "application/json",
+        throw: false,
+      });
+      const hs: Record<string, string> = {};
+      for (const [k, v] of Object.entries(res.headers ?? {})) hs[k.toLowerCase()] = String(v);
+      let data: unknown = null;
+      try {
+        data = res.json;
+      } catch {
+        data = res.text;
+      }
+      return { data, headers: hs, status: res.status };
+    };
+  }
+
+  private runnerDeps() {
+    return {
+      http: this.http(),
+      post: this.xyzPost(),
+      onXyzCreds: (next: XyzCreds) => {
+        this.settings.xyzAccessToken = next.accessToken;
+        if (next.refreshToken) this.settings.xyzRefreshToken = next.refreshToken;
+        if (next.deviceId) this.settings.xyzDeviceId = next.deviceId;
+        void this.saveSettings();
+      },
     };
   }
 
   async testPlatform(platform: Platform): Promise<PlatformResult> {
-    return syncPlatform(platform, this.runnerSettings(), this.http());
+    return syncPlatform(platform, this.runnerSettings(), this.runnerDeps());
   }
 
   /** 扫 Vault 组装去重集合（fav_id + url，兼容旧笔记）。 */
@@ -127,7 +166,7 @@ export default class FavCollectorPlugin extends Plugin {
     try {
       new Notice(`同步 ${platform} 中…（总览页看实时进度）`);
       this.setStatus(`Fav: 同步 ${platform}…`);
-      const result = await syncPlatform(platform, this.runnerSettings(), this.http());
+      const result = await syncPlatform(platform, this.runnerSettings(), this.runnerDeps());
       const { favIds, urls } = await this.scanExisting();
       const report = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
       this.settings.lastSync[platform] = {
@@ -174,8 +213,8 @@ export default class FavCollectorPlugin extends Plugin {
     this.emitProgress();
     try {
       new Notice("开始同步全部平台…（总览页看实时进度）");
-      const http = this.http();
       const settings = this.runnerSettings();
+      const deps = this.runnerDeps();
       const { favIds, urls } = await this.scanExisting();
       let totalAdded = 0;
       let idx = 0;
@@ -186,7 +225,7 @@ export default class FavCollectorPlugin extends Plugin {
         this.emitProgress();
         let result: PlatformResult;
         try {
-          result = await syncPlatform(p, settings, http);
+          result = await syncPlatform(p, settings, deps);
         } catch (e) {
           result = { platform: p, ok: false, items: [], error: (e as Error).message };
         }

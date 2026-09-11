@@ -32,6 +32,9 @@ var DEFAULT_SETTINGS = {
   zhihuSecret: "",
   ytdlpPath: "D:\\DevEnv\\bin\\yt-dlp.exe",
   ytCookieFile: "",
+  xyzAccessToken: "",
+  xyzRefreshToken: "",
+  xyzDeviceId: "",
   lastSync: {}
 };
 
@@ -77,8 +80,20 @@ var FavSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
+    new import_obsidian.Setting(containerEl).setName("\u5C0F\u5B87\u5B99 access_token").setDesc("\u77ED\u4FE1\u767B\u5F55\u4E00\u6B21\u5373\u53EF\uFF08\u4ED3\u5E93 scripts/xyz_login.py\uFF09\uFF0Crefresh_token \u4E00\u8D77\u7C98\u66F4\u7A33").addText(
+      (t) => t.setValue(s.xyzAccessToken).onChange(async (v) => {
+        s.xyzAccessToken = v.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("\u5C0F\u5B87\u5B99 refresh_token\uFF08\u53EF\u9009\uFF09").addText(
+      (t) => t.setValue(s.xyzRefreshToken).onChange(async (v) => {
+        s.xyzRefreshToken = v.trim();
+        await this.plugin.saveSettings();
+      })
+    );
     containerEl.createEl("h3", { text: "\u8FDE\u901A\u6027\u6D4B\u8BD5" });
-    for (const p of ["bilibili", "youtube", "zhihu", "x", "github"]) {
+    for (const p of ["bilibili", "youtube", "zhihu", "x", "github", "xiaoyuzhou"]) {
       new import_obsidian.Setting(containerEl).setName(`\u6D4B\u8BD5 ${p}`).addButton(
         (b) => b.setButtonText("\u6D4B\u8BD5").onClick(async () => {
           new import_obsidian.Notice(`\u6D4B\u8BD5 ${p} \u4E2D\u2026`);
@@ -94,13 +109,14 @@ var FavSettingTab = class extends import_obsidian.PluginSettingTab {
 var import_obsidian2 = require("obsidian");
 
 // src/sync/model.ts
-var PLATFORMS = ["bilibili", "youtube", "zhihu", "x", "github"];
+var PLATFORMS = ["bilibili", "youtube", "zhihu", "x", "github", "xiaoyuzhou"];
 var PLATFORM_LABEL = {
   bilibili: "B\u7AD9",
   youtube: "YouTube",
   zhihu: "\u77E5\u4E4E",
   x: "X",
-  github: "GitHub"
+  github: "GitHub",
+  xiaoyuzhou: "\u5C0F\u5B87\u5B99"
 };
 var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function toDateOnly(v) {
@@ -816,8 +832,145 @@ async function collectX(http, cookieRaw, maxPages = 30) {
   return items;
 }
 
+// src/sync/xiaoyuzhou.ts
+var API2 = "https://api.xiaoyuzhoufm.com";
+var XiaoyuzhouError = class extends Error {
+};
+function appHeaders(accessToken, deviceId) {
+  const now = /* @__PURE__ */ new Date();
+  const p = (n, l = 2) => String(n).padStart(l, "0");
+  const off = -now.getTimezoneOffset();
+  const sign = off >= 0 ? "+" : "-";
+  const local = `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}.${p(now.getMilliseconds(), 3)}${sign}${p(Math.floor(Math.abs(off) / 60))}00`;
+  const h = {
+    Host: "api.xiaoyuzhoufm.com",
+    os: "android",
+    "os-version": "28",
+    manufacturer: "Xiaomi",
+    model: "MI 6",
+    market: "xiaomi",
+    applicationid: "app.podcast.cosmos",
+    "app-version": "2.99.1",
+    "app-buildno": "1362",
+    "User-Agent": "Xiaoyuzhou/2.99.1(android 28)",
+    timezone: "Asia/Shanghai",
+    "local-time": local,
+    "content-type": "application/json;charset=utf-8"
+  };
+  if (accessToken) h["x-jike-access-token"] = accessToken;
+  if (deviceId) h["x-jike-device-id"] = deviceId;
+  return h;
+}
+function stripHtml(html) {
+  return (html ?? "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/(p|div|li|h\d)>/gi, "\n").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').split("\n").map((l) => l.trim()).filter(Boolean).join("\n");
+}
+function findEpisodeArrays(obj) {
+  if (Array.isArray(obj)) {
+    if (obj.length > 0 && typeof obj[0] === "object" && obj[0] !== null && ("eid" in obj[0] || "episodeId" in obj[0])) {
+      return obj;
+    }
+    for (const v of obj) {
+      const hit = findEpisodeArrays(v);
+      if (hit.length > 0) return hit;
+    }
+    return [];
+  }
+  if (obj && typeof obj === "object") {
+    const rec = obj;
+    if (typeof rec.eid === "string") return [rec];
+    for (const v of Object.values(rec)) {
+      const hit = findEpisodeArrays(v);
+      if (hit.length > 0) return hit;
+    }
+  }
+  return [];
+}
+function episodeToItem(raw) {
+  const eid = raw.eid ?? raw.episodeId;
+  if (!eid) return null;
+  const podcast = raw.podcast ?? {};
+  const title = (raw.title || "(\u65E0\u6807\u9898)").slice(0, 150);
+  const it = makeItem("xiaoyuzhou", eid, `https://www.xiaoyuzhoufm.com/episode/${eid}`, title);
+  const podTitle = podcast.title || void 0;
+  it.author = podTitle;
+  it.folder = podTitle;
+  it.description = stripHtml(raw.shownotes ?? raw.description).slice(0, 200) || void 0;
+  const image = raw.image ?? {};
+  it.coverUrl = image.picUrl || void 0;
+  it.publishedAt = toDateOnly(raw.pubDate ?? raw.publishDate ?? raw.createdAt);
+  const duration = raw.duration;
+  if (typeof duration === "number" && duration > 0) {
+    const m = Math.floor(duration / 6e4) || Math.floor(duration / 60);
+    if (!it.description) it.description = `\u7EA6 ${m} \u5206\u949F`;
+  }
+  return it;
+}
+async function collectXiaoyuzhou(http, creds, onCreds) {
+  if (!creds.accessToken.trim()) {
+    throw new XiaoyuzhouError("\u5C0F\u5B87\u5B99\u672A\u767B\u5F55\uFF1A\u8BBE\u7F6E\u9875\u586B access_token\uFF08\u77ED\u4FE1\u767B\u5F55\u4E00\u6B21\u5373\u53EF\uFF0C\u89C1\u4ED3\u5E93 scripts/xyz_login.py\uFF09");
+  }
+  let token = creds.accessToken.trim();
+  const deviceId = creds.deviceId?.trim() || void 0;
+  const call = async (payload) => {
+    const r = await http.post(`${API2}/v1/favorite/list`, payload, appHeaders(token, deviceId));
+    if (r.status === 401 && creds.refreshToken?.trim()) {
+      const rr = await http.post(
+        `${API2}/app_auth_tokens.refresh`,
+        {},
+        { ...appHeaders(void 0, deviceId), "x-jike-refresh-token": creds.refreshToken.trim() }
+      );
+      const newAccess = rr.headers["x-jike-access-token"] ?? rr.data["x-jike-access-token"];
+      if (typeof newAccess === "string" && newAccess) {
+        token = newAccess;
+        const newRefresh = rr.headers["x-jike-refresh-token"] ?? rr.data["x-jike-refresh-token"];
+        onCreds?.({
+          accessToken: token,
+          refreshToken: typeof newRefresh === "string" ? newRefresh : creds.refreshToken,
+          deviceId
+        });
+        return http.post(`${API2}/v1/favorite/list`, payload, appHeaders(token, deviceId));
+      }
+    }
+    return r;
+  };
+  const items = [];
+  const seen = /* @__PURE__ */ new Set();
+  let loadMoreKey;
+  for (let page = 0; page < 20; page += 1) {
+    let r;
+    try {
+      r = await call(loadMoreKey ? { loadMoreKey } : {});
+    } catch (e) {
+      throw new XiaoyuzhouError(`\u5C0F\u5B87\u5B99\u6536\u85CF\u6293\u53D6\u5931\u8D25: ${e.message.slice(0, 150)}`);
+    }
+    if (r.status === 401) {
+      throw new XiaoyuzhouError("\u5C0F\u5B87\u5B99\u767B\u5F55\u8FC7\u671F\uFF1A\u91CD\u767B\u540E\u66F4\u65B0\u8BBE\u7F6E\u9875 token\uFF08scripts/xyz_login.py\uFF09");
+    }
+    if (r.status !== 200) {
+      throw new XiaoyuzhouError(`\u5C0F\u5B87\u5B99\u63A5\u53E3\u8FD4\u56DE HTTP ${r.status}`);
+    }
+    const body = r.data ?? {};
+    const raws = findEpisodeArrays(body.data ?? body);
+    let fresh = 0;
+    for (const raw of raws) {
+      const it = episodeToItem(raw);
+      if (it && !seen.has(it.nativeId)) {
+        seen.add(it.nativeId);
+        items.push(it);
+        fresh += 1;
+      }
+    }
+    const next = body.loadMoreKey ?? body.nextLoadMoreKey;
+    if (!next || fresh === 0) break;
+    loadMoreKey = next;
+    await sleep(500);
+  }
+  return items;
+}
+
 // src/sync/runner.ts
-async function syncPlatform(platform, settings, http) {
+async function syncPlatform(platform, settings, deps) {
+  const { http, post, onXyzCreds } = deps;
   try {
     let items;
     switch (platform) {
@@ -835,6 +988,17 @@ async function syncPlatform(platform, settings, http) {
         break;
       case "github":
         items = await collectGithub();
+        break;
+      case "xiaoyuzhou":
+        items = await collectXiaoyuzhou(
+          { post },
+          {
+            accessToken: settings.xyzAccessToken,
+            refreshToken: settings.xyzRefreshToken || void 0,
+            deviceId: settings.xyzDeviceId || void 0
+          },
+          onXyzCreds
+        );
         break;
     }
     return { platform, ok: true, items };
@@ -924,11 +1088,47 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       xCookies: this.settings.xCookies,
       zhihuSecret: this.settings.zhihuSecret,
       ytdlpPath: this.settings.ytdlpPath || DEFAULT_SETTINGS.ytdlpPath,
-      ytCookieFile: this.settings.ytCookieFile || void 0
+      ytCookieFile: this.settings.ytCookieFile || void 0,
+      xyzAccessToken: this.settings.xyzAccessToken,
+      xyzRefreshToken: this.settings.xyzRefreshToken,
+      xyzDeviceId: this.settings.xyzDeviceId
+    };
+  }
+  xyzPost() {
+    return async (url, body, headers) => {
+      const res = await (0, import_obsidian3.requestUrl)({
+        url,
+        method: "POST",
+        headers,
+        body: JSON.stringify(body ?? {}),
+        contentType: "application/json",
+        throw: false
+      });
+      const hs = {};
+      for (const [k, v] of Object.entries(res.headers ?? {})) hs[k.toLowerCase()] = String(v);
+      let data = null;
+      try {
+        data = res.json;
+      } catch {
+        data = res.text;
+      }
+      return { data, headers: hs, status: res.status };
+    };
+  }
+  runnerDeps() {
+    return {
+      http: this.http(),
+      post: this.xyzPost(),
+      onXyzCreds: (next) => {
+        this.settings.xyzAccessToken = next.accessToken;
+        if (next.refreshToken) this.settings.xyzRefreshToken = next.refreshToken;
+        if (next.deviceId) this.settings.xyzDeviceId = next.deviceId;
+        void this.saveSettings();
+      }
     };
   }
   async testPlatform(platform) {
-    return syncPlatform(platform, this.runnerSettings(), this.http());
+    return syncPlatform(platform, this.runnerSettings(), this.runnerDeps());
   }
   /** 扫 Vault 组装去重集合（fav_id + url，兼容旧笔记）。 */
   async scanExisting() {
@@ -956,7 +1156,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
     try {
       new import_obsidian3.Notice(`\u540C\u6B65 ${platform} \u4E2D\u2026\uFF08\u603B\u89C8\u9875\u770B\u5B9E\u65F6\u8FDB\u5EA6\uFF09`);
       this.setStatus(`Fav: \u540C\u6B65 ${platform}\u2026`);
-      const result = await syncPlatform(platform, this.runnerSettings(), this.http());
+      const result = await syncPlatform(platform, this.runnerSettings(), this.runnerDeps());
       const { favIds, urls } = await this.scanExisting();
       const report = await writeNewItems(this.fsAdapter(), favIds, urls, [result], this.ytEnrich());
       this.settings.lastSync[platform] = {
@@ -999,8 +1199,8 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
     this.emitProgress();
     try {
       new import_obsidian3.Notice("\u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026\uFF08\u603B\u89C8\u9875\u770B\u5B9E\u65F6\u8FDB\u5EA6\uFF09");
-      const http = this.http();
       const settings = this.runnerSettings();
+      const deps = this.runnerDeps();
       const { favIds, urls } = await this.scanExisting();
       let totalAdded = 0;
       let idx = 0;
@@ -1011,7 +1211,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
         this.emitProgress();
         let result;
         try {
-          result = await syncPlatform(p, settings, http);
+          result = await syncPlatform(p, settings, deps);
         } catch (e) {
           result = { platform: p, ok: false, items: [], error: e.message };
         }

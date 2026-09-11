@@ -20,6 +20,7 @@
 .fav-badge.zhihu { background: #0066ff; }
 .fav-badge.x { background: #333; }
 .fav-badge.github { background: #6e40c9; }
+.fav-badge.xiaoyuzhou { background: #ff6b6b; }
 .fav-group-title { margin: 14px 0 8px; font-size: 14px; }
 .fav-syncgress { border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
 .fav-syncgress-title { font-weight: 600; margin-bottom: 4px; }

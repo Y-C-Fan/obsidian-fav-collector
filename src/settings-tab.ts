@@ -56,8 +56,24 @@ export class FavSettingTab extends PluginSettingTab {
         }),
       );
 
+    new Setting(containerEl)
+      .setName("小宇宙 access_token")
+      .setDesc("短信登录一次即可（仓库 scripts/xyz_login.py），refresh_token 一起粘更稳")
+      .addText((t) =>
+        t.setValue(s.xyzAccessToken).onChange(async (v) => {
+          s.xyzAccessToken = v.trim();
+          await this.plugin.saveSettings();
+        }),
+      );
+    new Setting(containerEl).setName("小宇宙 refresh_token（可选）").addText((t) =>
+      t.setValue(s.xyzRefreshToken).onChange(async (v) => {
+        s.xyzRefreshToken = v.trim();
+        await this.plugin.saveSettings();
+      }),
+    );
+
     containerEl.createEl("h3", { text: "连通性测试" });
-    for (const p of ["bilibili", "youtube", "zhihu", "x", "github"] as const) {
+    for (const p of ["bilibili", "youtube", "zhihu", "x", "github", "xiaoyuzhou"] as const) {
       new Setting(containerEl)
         .setName(`测试 ${p}`)
         .addButton((b) =>
