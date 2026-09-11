@@ -744,6 +744,8 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
   }
   async onload() {
     this.settings = { ...DEFAULT_SETTINGS, ...await this.loadData() ?? {} };
+    this.statusEl = this.addStatusBarItem();
+    this.setStatus("Fav: \u5C31\u7EEA");
     this.registerView(VIEW_TYPE_FAV_DASHBOARD, (leaf) => new FavDashboardView(leaf, this));
     this.addRibbonIcon("refresh-cw", "\u540C\u6B65\u5168\u90E8\u6536\u85CF", () => void this.syncAll());
     this.addCommand({ id: "sync-all", name: "\u540C\u6B65\u5168\u90E8\u6536\u85CF", callback: () => void this.syncAll() });
@@ -756,6 +758,9 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+  setStatus(text) {
+    this.statusEl?.setText(text);
   }
   http() {
     return async (url, headers) => {
@@ -798,7 +803,8 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
     }
     this.syncing = true;
     try {
-      new import_obsidian3.Notice(`\u540C\u6B65 ${platform} \u4E2D\u2026`);
+      new import_obsidian3.Notice(`\u540C\u6B65 ${platform} \u4E2D\u2026\uFF08\u770B\u5E95\u90E8\u72B6\u6001\u680F\u8FDB\u5EA6\uFF09`);
+      this.setStatus(`Fav: \u540C\u6B65 ${platform}\u2026`);
       const result = await syncPlatform(platform, this.runnerSettings(), this.http());
       const { favIds, urls } = await this.scanExisting();
       const va = this.app.vault;
@@ -820,6 +826,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
         error: result.error
       };
       await this.saveSettings();
+      this.setStatus(result.ok ? `Fav: ${platform} +${report.added}` : `Fav: ${platform} \u5931\u8D25`);
       new import_obsidian3.Notice(result.ok ? `${platform} \u540C\u6B65\u5B8C\u6210\uFF0C\u65B0\u589E ${report.added} \u6761` : `${platform} \u5931\u8D25\uFF1A${result.error}`);
     } finally {
       this.syncing = false;
@@ -836,13 +843,17 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       const http = this.http();
       const settings = this.runnerSettings();
       const results = [];
+      let done = 0;
       for (const p of PLATFORMS) {
+        this.setStatus(`Fav: \u540C\u6B65 ${p}\uFF08${done + 1}/${PLATFORMS.length}\uFF09\u2026`);
         try {
           results.push(await syncPlatform(p, settings, http));
         } catch (e) {
           results.push({ platform: p, ok: false, items: [], error: e.message });
         }
+        done += 1;
       }
+      this.setStatus("Fav: \u5199\u7B14\u8BB0\u2026");
       const { favIds, urls } = await this.scanExisting();
       const va = this.app.vault;
       const report = await writeNewItems(
@@ -868,6 +879,9 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
       await this.saveSettings();
       const okCount = results.filter((r) => r.ok).length;
       const failed = results.filter((r) => !r.ok).map((r) => r.platform);
+      this.setStatus(
+        failed.length === 0 ? `Fav: \u5B8C\u6210 +${report.added}` : `Fav: ${failed.join("\u3001")}\u5931\u8D25`
+      );
       new import_obsidian3.Notice(
         failed.length === 0 ? `\u540C\u6B65\u5B8C\u6210\uFF1A${PLATFORMS.length}/${PLATFORMS.length} \u5E73\u53F0\uFF0C\u65B0\u589E ${report.added} \u6761` : `\u540C\u6B65\u5B8C\u6210 ${okCount}/${PLATFORMS.length}\uFF0C\u65B0\u589E ${report.added} \u6761\uFF1B\u5931\u8D25\uFF1A${failed.join("\u3001")}\uFF08\u770B\u603B\u89C8\u7EA2\u5361\u91CD\u8BD5\uFF09`
       );

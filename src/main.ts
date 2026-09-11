@@ -15,9 +15,12 @@ import type { HttpGet, Platform, PlatformResult } from "./sync/model.js";
 export default class FavCollectorPlugin extends Plugin {
   settings!: FavSettings;
   syncing = false;
+  private statusEl?: HTMLElement;
 
   async onload(): Promise<void> {
     this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) ?? {}) };
+    this.statusEl = this.addStatusBarItem();
+    this.setStatus("Fav: 就绪");
 
     this.registerView(VIEW_TYPE_FAV_DASHBOARD, (leaf: WorkspaceLeaf) => new FavDashboardView(leaf, this));
 
@@ -33,6 +36,10 @@ export default class FavCollectorPlugin extends Plugin {
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
+  }
+
+  private setStatus(text: string): void {
+    this.statusEl?.setText(text);
   }
 
   private http(): HttpGet {
@@ -81,7 +88,8 @@ export default class FavCollectorPlugin extends Plugin {
     }
     this.syncing = true;
     try {
-      new Notice(`同步 ${platform} 中…`);
+      new Notice(`同步 ${platform} 中…（看底部状态栏进度）`);
+      this.setStatus(`Fav: 同步 ${platform}…`);
       const result = await syncPlatform(platform, this.runnerSettings(), this.http());
       const { favIds, urls } = await this.scanExisting();
       const va = this.app.vault;
@@ -104,6 +112,7 @@ export default class FavCollectorPlugin extends Plugin {
         error: result.error,
       };
       await this.saveSettings();
+      this.setStatus(result.ok ? `Fav: ${platform} +${report.added}` : `Fav: ${platform} 失败`);
       new Notice(result.ok ? `${platform} 同步完成，新增 ${report.added} 条` : `${platform} 失败：${result.error}`);
     } finally {
       this.syncing = false;
@@ -121,13 +130,17 @@ export default class FavCollectorPlugin extends Plugin {
       const http = this.http();
       const settings = this.runnerSettings();
       const results: PlatformResult[] = [];
+      let done = 0;
       for (const p of PLATFORMS) {
+        this.setStatus(`Fav: 同步 ${p}（${done + 1}/${PLATFORMS.length}）…`);
         try {
           results.push(await syncPlatform(p, settings, http));
         } catch (e) {
           results.push({ platform: p, ok: false, items: [], error: (e as Error).message });
         }
+        done += 1;
       }
+      this.setStatus("Fav: 写笔记…");
       const { favIds, urls } = await this.scanExisting();
       const va = this.app.vault;
       const report = await writeNewItems(
@@ -153,6 +166,9 @@ export default class FavCollectorPlugin extends Plugin {
       await this.saveSettings();
       const okCount = results.filter((r) => r.ok).length;
       const failed = results.filter((r) => !r.ok).map((r) => r.platform);
+      this.setStatus(
+        failed.length === 0 ? `Fav: 完成 +${report.added}` : `Fav: ${failed.join("、")}失败`,
+      );
       new Notice(
         failed.length === 0
           ? `同步完成：${PLATFORMS.length}/${PLATFORMS.length} 平台，新增 ${report.added} 条`
