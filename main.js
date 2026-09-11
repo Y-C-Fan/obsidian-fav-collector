@@ -5467,6 +5467,7 @@ var OmniCollectionListView = class extends import_obsidian5.ItemView {
       const meta = main.createEl("div", { cls: "omni-row-meta" });
       meta.createEl("span", { text: PLATFORMS2.find((p) => p.key === item.platform)?.label ?? item.platform, cls: "omni-badge omni-badge-platform" });
       meta.createEl("span", { text: item.saveType === "liked" ? "\u70B9\u8D5E" : item.saveType === "watch_later" ? "\u7A0D\u540E\u518D\u770B" : "\u6536\u85CF", cls: "omni-badge" });
+      if (item.favFolder) meta.createEl("span", { text: `\u{1F5C2} ${item.favFolder}`, cls: "omni-badge omni-badge-group" });
       if (item.contentStatus === "deleted") {
         meta.createEl("span", { text: "\u5931\u6548", cls: "omni-badge omni-badge-deleted" });
         row.addClass("omni-row-deleted");
@@ -5796,6 +5797,12 @@ function escapeTitleHash(title) {
 }
 function sanitizeFilename(name) {
   return (name || "untitled").replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
+}
+function notePathFor(dto) {
+  const folder = dto.favFolder?.trim() || (dto.saveType === "watch_later" ? "\u7A0D\u540E\u518D\u770B" : void 0);
+  const dir = folder ? `Fav Collector/${dto.platform}/${sanitizeFilename(folder)}` : `Fav Collector/${dto.platform}`;
+  const safeTitle = sanitizeFilename(dto.title || dto.platformItemId);
+  return `${dir}/${safeTitle}.md`;
 }
 var MarkdownBuilder = class {
   /** 系统区内容（Engine 管理，可覆盖重建）：元信息 + 展开标记 + 全文。 */
@@ -6323,7 +6330,7 @@ var OmniCollectorPlugin = class extends import_obsidian7.Plugin {
     await this.generateCollectionMarkdown();
     new import_obsidian7.Notice(`Fav Collector: \u540C\u6B65\u5B8C\u6210 ${ok}/${platforms.length} \u5E73\u53F0\uFF0C\u5171\u6293\u53D6 ${fetched} \u6761\uFF08+${added} \u65B0\u589E / ${updated} \u66F4\u65B0\uFF09`);
   }
-  /** 查询收藏并写入 vault：Fav Collector/{平台}/{标题}.md（仅更新系统区）。 */
+  /** 查询收藏并写入 vault：Fav Collector/{平台}[/{收藏夹}]/{标题}.md（仅更新系统区）。 */
   async generateCollectionMarkdown() {
     const collections = await this.engine.listCollections();
     const folder = "Fav Collector";
@@ -6334,12 +6341,11 @@ var OmniCollectorPlugin = class extends import_obsidian7.Plugin {
     const builder = new MarkdownBuilder();
     let count = 0;
     for (const dto of collections) {
-      const platformDir = `${folder}/${dto.platform}`;
-      if (!await vault.adapter.exists(platformDir)) {
-        await vault.createFolder(platformDir);
+      const filePath = notePathFor(dto);
+      const dir = filePath.slice(0, filePath.lastIndexOf("/"));
+      if (!await vault.adapter.exists(dir)) {
+        await vault.createFolder(dir);
       }
-      const safeTitle = (dto.title || dto.platformItemId).replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
-      const filePath = `${platformDir}/${safeTitle}.md`;
       try {
         if (await vault.adapter.exists(filePath)) {
           const existing = await vault.adapter.read(filePath);
@@ -6366,7 +6372,7 @@ var OmniCollectorPlugin = class extends import_obsidian7.Plugin {
         const links = (topic.collection_ids ?? []).map((id) => {
           const dto = byId.get(id);
           if (!dto) return "";
-          return `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
+          return notePathFor(dto).replace(/\.md$/, "");
         }).filter(Boolean);
         const hubPath = `${topicDir}/${sanitizeFilename(topic.name)}.md`;
         try {
@@ -6388,7 +6394,7 @@ var OmniCollectorPlugin = class extends import_obsidian7.Plugin {
         });
       }
       for (const tag of tags) {
-        const links = collections.filter((c) => (c.tags ?? []).includes(tag.name)).map((c) => `Fav Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
+        const links = collections.filter((c) => (c.tags ?? []).includes(tag.name)).map((c) => notePathFor(c).replace(/\.md$/, ""));
         const hubPath = `${tagDir}/${sanitizeFilename(tag.name)}.md`;
         try {
           const content = builder.buildTagHub(tag.name, links);

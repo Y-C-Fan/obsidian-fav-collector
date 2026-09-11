@@ -246,6 +246,7 @@ export class OmniCollectionListView extends ItemView {
       const meta = main.createEl('div', { cls: 'omni-row-meta' });
       meta.createEl('span', { text: PLATFORMS.find((p) => p.key === item.platform)?.label ?? item.platform, cls: 'omni-badge omni-badge-platform' });
       meta.createEl('span', { text: item.saveType === 'liked' ? '点赞' : item.saveType === 'watch_later' ? '稍后再看' : '收藏', cls: 'omni-badge' });
+      if (item.favFolder) meta.createEl('span', { text: `🗂 ${item.favFolder}`, cls: 'omni-badge omni-badge-group' });
       if (item.contentStatus === "deleted") {
         meta.createEl('span', { text: '失效', cls: 'omni-badge omni-badge-deleted' });
         row.addClass("omni-row-deleted");

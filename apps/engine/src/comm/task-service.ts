@@ -27,6 +27,17 @@ import type { CommHandler } from "./comm-server.js";
 
 const SYNC_MODES: SyncMode[] = ["catalog", "full", "detail"];
 
+/** 从 extra_json 解析收藏夹/分组名（B站 favFolder、知乎 favlist）。 */
+function favFolderOf(row: { extra_json?: string | null }): string | undefined {
+  try {
+    const extra = JSON.parse(row.extra_json ?? "{}") as { favFolder?: unknown; favlist?: unknown };
+    const v = extra.favFolder ?? extra.favlist;
+    return typeof v === "string" && v.trim() ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export interface TaskServiceOptions {
   dataDir: string;
   migrationsDir: string;
@@ -35,8 +46,7 @@ export interface TaskServiceOptions {
   getProvider?: (rules: RuleCenter) => AIProvider | null;
 }
 
-function complete(requestId: string, payload: Record<string, unknown>): OmniMessage {
-  return {
+function complete(requestId: string, payload: Record<string, unknown>): OmniMessage {  return {
     request_id: requestId,
     timestamp: new Date().toISOString(),
     message_type: "TASK_COMPLETE",
@@ -325,6 +335,7 @@ export class TaskService {
             description: c.description ?? undefined,
             transcript: c.transcript ?? undefined,
             expandedAt: c.detail_synced === 1 ? (c.last_synced_at ?? undefined) : undefined,
+            favFolder: favFolderOf(c),
             contentType: c.content_type,
             saveType: c.save_type,
             contentStatus: c.content_status,
@@ -452,6 +463,7 @@ export class TaskService {
           description: col.description ?? undefined,
           transcript: col.transcript ?? undefined,
           expandedAt: col.detail_synced === 1 ? (col.last_synced_at ?? undefined) : undefined,
+          favFolder: favFolderOf(col),
           contentType: col.content_type,
           saveType: col.save_type,
           contentStatus: col.content_status,

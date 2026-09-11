@@ -38,6 +38,7 @@ export class CollectionRepository extends BaseRepository<CollectionRow> {
       inbox_status: data.inbox_status ?? "pending",
       organize_status: data.organize_status ?? "unorganized",
       priority: data.priority ?? "normal",
+      extra_json: data.extra_json ?? null,
       collected_at: data.collected_at ?? stamp,
       created_at: stamp,
       updated_at: stamp,
@@ -61,6 +62,7 @@ export class CollectionRepository extends BaseRepository<CollectionRow> {
       inbox_status: row.inbox_status,
       organize_status: row.organize_status,
       priority: row.priority,
+      extra_json: row.extra_json,
       collected_at: row.collected_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -69,10 +71,10 @@ export class CollectionRepository extends BaseRepository<CollectionRow> {
       .prepare(
         `INSERT INTO collections (id, platform, platform_item_id, url, title, author, cover_url,
          description, content_type, save_type, content_status, sync_status, catalog_synced,
-         detail_synced, inbox_status, organize_status, priority, collected_at, created_at, updated_at)
+         detail_synced, inbox_status, organize_status, priority, extra_json, collected_at, created_at, updated_at)
          VALUES (@id, @platform, @platform_item_id, @url, @title, @author, @cover_url,
          @description, @content_type, @save_type, @content_status, @sync_status, @catalog_synced,
-         @detail_synced, @inbox_status, @organize_status, @priority, @collected_at, @created_at, @updated_at)`,
+         @detail_synced, @inbox_status, @organize_status, @priority, @extra_json, @collected_at, @created_at, @updated_at)`,
       )
       .run(bind);
     return this.findById(row.id) as CollectionRow;

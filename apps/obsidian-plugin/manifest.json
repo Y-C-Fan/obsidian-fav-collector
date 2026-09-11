@@ -1,7 +1,7 @@
 {
   "id": "omni-collector",
   "name": "Fav Collector",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "minAppVersion": "1.5.0",
   "description": "Multi-platform favorite collector (Bilibili, YouTube, Zhihu, X) with daily auto-sync, on-demand detail expansion for AI agents, Tag Atlas, Topic hubs and graph integration.",
   "author": "Y-C-Fan",

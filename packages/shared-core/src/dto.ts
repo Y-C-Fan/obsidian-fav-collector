@@ -9,6 +9,8 @@ export interface CollectionDTO {
   author?: string;
   coverUrl?: string;
   description?: string;
+  /** 收藏夹/分组名（B站收藏夹、知乎 favlist；无则按 saveType 归位）。 */
+  favFolder?: string;
   /** 展开后的全文/逐字稿（expand 写入，仅系统区使用）。 */
   transcript?: string;
   /** 展开时间（detail_synced=1 时为 lastSyncedAt，否则无）。 */

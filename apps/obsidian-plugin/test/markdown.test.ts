@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MarkdownBuilder } from "../src/markdown/markdown-builder.js";
+import { MarkdownBuilder, notePathFor } from "../src/markdown/markdown-builder.js";
 import type { CollectionDTO } from "@omni/shared-core";
 
 const SYSTEM_END_MARKER = "<!-- OMNI_SYSTEM_END -->";
@@ -45,6 +45,21 @@ describe("MarkdownBuilder", () => {
     const builder = new MarkdownBuilder();
     expect(builder.validateMarkers("no markers here")).toBe(false);
     expect(() => builder.replaceSystemZone("no markers", dto)).toThrowError("PLUGIN_002");
+  });
+
+  it("notePathFor groups by favFolder and isolates watch_later", () => {
+    expect(notePathFor({ ...dto })).toBe("Fav Collector/bilibili/视频标题.md");
+    expect(notePathFor({ ...dto, favFolder: "AI 学习" })).toBe("Fav Collector/bilibili/AI 学习/视频标题.md");
+    expect(notePathFor({ ...dto, saveType: "watch_later" })).toBe("Fav Collector/bilibili/稍后再看/视频标题.md");
+    expect(notePathFor({ ...dto, saveType: "watch_later", favFolder: "AI 学习" })).toBe(
+      "Fav Collector/bilibili/AI 学习/视频标题.md",
+    );
+    expect(notePathFor({ ...dto, platform: "zhihu", favFolder: "默认收藏夹" })).toBe(
+      "Fav Collector/zhihu/默认收藏夹/视频标题.md",
+    );
+    // 非法字符与空标题兜底
+    expect(notePathFor({ ...dto, favFolder: "a/b:c" })).toBe("Fav Collector/bilibili/a_b_c/视频标题.md");
+    expect(notePathFor({ ...dto, title: "" })).toBe("Fav Collector/bilibili/BV1.md");
   });
 
   it("extracts user zone sections", () => {

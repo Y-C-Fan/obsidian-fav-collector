@@ -10,7 +10,7 @@ import { OmniTagTopicView, VIEW_TYPE_OMNI_TAGS, type TagTopicSource } from "./ui
 import { OmniCollectionListView, VIEW_TYPE_OMNI_LIST, type ListDataSource } from "./ui/collection-list.js";
 import { OmniCollectionDetailView, VIEW_TYPE_OMNI_DETAIL, type DetailDataSource } from "./ui/collection-detail.js";
 import { FavDashboardView, VIEW_TYPE_OMNI_DASHBOARD } from "./ui/dashboard.js";
-import { MarkdownBuilder, sanitizeFilename } from "./markdown/markdown-builder.js";
+import { MarkdownBuilder, notePathFor, sanitizeFilename } from "./markdown/markdown-builder.js";
 import { dailyCapReached, isSyncDue } from "./sync/sync-scheduler.js";
 
 export default class OmniCollectorPlugin extends Plugin {
@@ -365,7 +365,7 @@ export default class OmniCollectorPlugin extends Plugin {
     new Notice(`Fav Collector: 同步完成 ${ok}/${platforms.length} 平台，共抓取 ${fetched} 条（+${added} 新增 / ${updated} 更新）`);
   }
 
-  /** 查询收藏并写入 vault：Fav Collector/{平台}/{标题}.md（仅更新系统区）。 */
+  /** 查询收藏并写入 vault：Fav Collector/{平台}[/{收藏夹}]/{标题}.md（仅更新系统区）。 */
   async generateCollectionMarkdown(): Promise<void> {
     const collections = await this.engine.listCollections();
     const folder = "Fav Collector";
@@ -376,12 +376,11 @@ export default class OmniCollectorPlugin extends Plugin {
     const builder = new MarkdownBuilder();
     let count = 0;
     for (const dto of collections) {
-      const platformDir = `${folder}/${dto.platform}`;
-      if (!(await vault.adapter.exists(platformDir))) {
-        await vault.createFolder(platformDir);
+      const filePath = notePathFor(dto);
+      const dir = filePath.slice(0, filePath.lastIndexOf("/"));
+      if (!(await vault.adapter.exists(dir))) {
+        await vault.createFolder(dir);
       }
-      const safeTitle = (dto.title || dto.platformItemId).replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
-      const filePath = `${platformDir}/${safeTitle}.md`;
       try {
         if (await vault.adapter.exists(filePath)) {
           const existing = await vault.adapter.read(filePath);
@@ -410,7 +409,7 @@ export default class OmniCollectorPlugin extends Plugin {
           .map((id) => {
             const dto = byId.get(id);
             if (!dto) return "";
-            return `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
+            return notePathFor(dto).replace(/\.md$/, "");
           })
           .filter(Boolean);
         const hubPath = `${topicDir}/${sanitizeFilename(topic.name)}.md`;
@@ -436,7 +435,7 @@ export default class OmniCollectorPlugin extends Plugin {
       for (const tag of tags) {
         const links = collections
           .filter((c) => (c.tags ?? []).includes(tag.name))
-          .map((c) => `Fav Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
+          .map((c) => notePathFor(c).replace(/\.md$/, ""));
         const hubPath = `${tagDir}/${sanitizeFilename(tag.name)}.md`;
         try {
           const content = builder.buildTagHub(tag.name, links);

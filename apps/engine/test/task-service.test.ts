@@ -64,6 +64,37 @@ describe("TaskService (internal, fake provider)", () => {
     }
   });
 
+  it("STATUS_QUERY maps favFolder from extra_json (bilibili favFolder, zhihu favlist)", async () => {
+    const dataDir = makeDataDir();
+    const service = new TaskService({ dataDir, migrationsDir: path.join(dataDir, "migrations") });
+    try {
+      const manager = new MigrationManager(path.join(dataDir, "OmniCollector.db"), path.join(dataDir, "migrations"), path.join(dataDir, "backup"));
+      manager.migrate();
+      const db = manager.getDb();
+      const repo = new CollectionRepository(db);
+      repo.upsertByPlatformItem("bilibili", "BV-folder", {
+        url: "https://www.bilibili.com/video/BV-folder",
+        title: "分文件夹视频",
+        extra_json: JSON.stringify({ contentType: "video", favFolder: "AI 学习" }),
+      });
+      repo.upsertByPlatformItem("zhihu", "answer-9", {
+        url: "https://www.zhihu.com/question/1/answer/9",
+        title: "知乎回答",
+        extra_json: JSON.stringify({ contentType: "answer", favlist: "默认收藏夹" }),
+      });
+      manager.close();
+      const res = await service.handlers().STATUS_QUERY?.(
+        makeMsg("STATUS_QUERY", { scope: "collections" }),
+      );
+      expect(res?.message_type).toBe("TASK_COMPLETE");
+      const list = (res?.payload?.collections ?? []) as Array<{ url: string; favFolder?: string }>;
+      expect(list.find((c) => c.url.includes("BV-folder"))?.favFolder).toBe("AI 学习");
+      expect(list.find((c) => c.url.includes("answer/9"))?.favFolder).toBe("默认收藏夹");
+    } finally {
+      service.dispose();
+    }
+  });
+
   it("TASK_AI without provider returns clear error", async () => {
     const dataDir = makeDataDir();
     const service = new TaskService({ dataDir, migrationsDir: path.join(dataDir, "migrations") });

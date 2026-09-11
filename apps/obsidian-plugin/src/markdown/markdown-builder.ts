@@ -19,6 +19,25 @@ export function sanitizeFilename(name: string): string {
 }
 
 /**
+ * 笔记落盘路径：Fav Collector/{平台}[/{收藏夹}]/[{标题}].md。
+ * 收藏夹来自 DTO.favFolder（B站收藏夹名、知乎专栏名）；稍后再看统一进「稍后再看」子目录。
+ */
+export function notePathFor(dto: {
+  platform: string;
+  title?: string;
+  platformItemId: string;
+  saveType: string;
+  favFolder?: string;
+}): string {
+  const folder = dto.favFolder?.trim() || (dto.saveType === "watch_later" ? "稍后再看" : undefined);
+  const dir = folder
+    ? `Fav Collector/${dto.platform}/${sanitizeFilename(folder)}`
+    : `Fav Collector/${dto.platform}`;
+  const safeTitle = sanitizeFilename(dto.title || dto.platformItemId);
+  return `${dir}/${safeTitle}.md`;
+}
+
+/**
  * Markdown 区域隔离协议（TDD Part 8，SPEC S7 冻结）：
  * 系统区由 Plugin 依据 Engine DTO 生成；用户区任何自动化逻辑禁止修改（ADR-011/ADR-006）。
  */
