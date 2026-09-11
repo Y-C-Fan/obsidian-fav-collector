@@ -3,6 +3,7 @@
  * 只创建新文件，绝不改写旧文件（用户区天然安全）。
  */
 import type { CollectedItem, Platform } from "../sync/model.js";
+import { PLATFORM_LABEL } from "../sync/model.js";
 
 export function sanitizeFilename(name: string): string {
   return (name || "untitled").replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
@@ -96,6 +97,10 @@ export function cardFromNote(path: string, md: string): CardData | null {
     const m = fm.url.match(/watch\?v=([\w-]{6,})/);
     if (m) cover = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
   }
+  // 文件夹以文件路径为准（Fav Collector/{平台}/{收藏夹}/x.md），frontmatter 只是兜底
+  let folder = fm.folder;
+  const segs = path.split("/");
+  if (segs.length >= 4) folder = segs[2];
   let description: string | undefined;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || undefined;
@@ -106,8 +111,44 @@ export function cardFromNote(path: string, md: string): CardData | null {
     url: fm.url,
     author: fm.author,
     publishedAt: fm.published_at,
-    folder: fm.folder,
+    folder,
     cover,
     description,
   };
+}
+
+export interface CardGroup {
+  key: string;
+  label: string;
+  items: CardData[];
+}
+
+/** 按收藏夹分组（未分类沉底，其余按名称排；组内保持时间倒序）。 */
+export function groupCards(cards: CardData[], platform: Platform | "all"): CardGroup[] {
+  const map = new Map<string, CardData[]>();
+  for (const c of cards) {
+    const folder = c.folder ?? "未分类";
+    const key = platform === "all" ? `${c.platform}::${folder}` : folder;
+    const arr = map.get(key) ?? [];
+    arr.push(c);
+    map.set(key, arr);
+  }
+  const groups: CardGroup[] = [...map.entries()].map(([key, items]) => {
+    let label: string;
+    if (platform === "all") {
+      const [p, f] = key.split("::");
+      label = `${PLATFORM_LABEL[p as Platform]} · ${f}`;
+    } else {
+      label = key;
+    }
+    return { key, label, items };
+  });
+  groups.sort((a, b) => {
+    const au = a.label.endsWith("未分类") ? 1 : 0;
+    const bu = b.label.endsWith("未分类") ? 1 : 0;
+    if (au !== bu) return au - bu;
+    if (b.items.length !== a.items.length) return b.items.length - a.items.length;
+    return a.label.localeCompare(b.label, "zh");
+  });
+  return groups;
 }

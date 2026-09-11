@@ -93,6 +93,51 @@ var FavSettingTab = class extends import_obsidian.PluginSettingTab {
 // src/ui/dashboard.ts
 var import_obsidian2 = require("obsidian");
 
+// src/sync/model.ts
+var PLATFORMS = ["bilibili", "youtube", "zhihu", "x", "github"];
+var PLATFORM_LABEL = {
+  bilibili: "B\u7AD9",
+  youtube: "YouTube",
+  zhihu: "\u77E5\u4E4E",
+  x: "X",
+  github: "GitHub"
+};
+var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function toDateOnly(v) {
+  if (v === null || v === void 0) return void 0;
+  if (typeof v === "number" && Number.isFinite(v)) {
+    const sec = v > 1e12 ? Math.floor(v / 1e3) : Math.floor(v);
+    const d = new Date(sec * 1e3);
+    if (Number.isNaN(d.getTime())) return void 0;
+    const cst = new Date(d.getTime() + 8 * 3600 * 1e3);
+    return cst.toISOString().slice(0, 10);
+  }
+  if (typeof v === "string") {
+    const s = v.trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+    const t = Date.parse(s);
+    if (!Number.isNaN(t)) return new Date(t).toISOString().slice(0, 10);
+  }
+  return void 0;
+}
+function parseCookieString(raw) {
+  const out = {};
+  for (const part of (raw ?? "").split(";")) {
+    const i = part.indexOf("=");
+    if (i <= 0) continue;
+    const k = part.slice(0, i).trim();
+    const val = part.slice(i + 1).trim();
+    if (k) out[k] = val;
+  }
+  return out;
+}
+function cookieHeader(jar) {
+  return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
+}
+function makeItem(platform, nativeId, url, title) {
+  return { platform, nativeId, favId: `${platform}:${nativeId}`, url, title };
+}
+
 // src/markdown/writer.ts
 function sanitizeFilename(name) {
   return (name || "untitled").replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
@@ -160,6 +205,9 @@ function cardFromNote(path, md) {
     const m = fm.url.match(/watch\?v=([\w-]{6,})/);
     if (m) cover = `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg`;
   }
+  let folder = fm.folder;
+  const segs = path.split("/");
+  if (segs.length >= 4) folder = segs[2];
   let description;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || void 0;
@@ -170,55 +218,38 @@ function cardFromNote(path, md) {
     url: fm.url,
     author: fm.author,
     publishedAt: fm.published_at,
-    folder: fm.folder,
+    folder,
     cover,
     description
   };
 }
-
-// src/sync/model.ts
-var PLATFORMS = ["bilibili", "youtube", "zhihu", "x", "github"];
-var PLATFORM_LABEL = {
-  bilibili: "B\u7AD9",
-  youtube: "YouTube",
-  zhihu: "\u77E5\u4E4E",
-  x: "X",
-  github: "GitHub"
-};
-var sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-function toDateOnly(v) {
-  if (v === null || v === void 0) return void 0;
-  if (typeof v === "number" && Number.isFinite(v)) {
-    const sec = v > 1e12 ? Math.floor(v / 1e3) : Math.floor(v);
-    const d = new Date(sec * 1e3);
-    if (Number.isNaN(d.getTime())) return void 0;
-    const cst = new Date(d.getTime() + 8 * 3600 * 1e3);
-    return cst.toISOString().slice(0, 10);
+function groupCards(cards, platform) {
+  const map = /* @__PURE__ */ new Map();
+  for (const c of cards) {
+    const folder = c.folder ?? "\u672A\u5206\u7C7B";
+    const key = platform === "all" ? `${c.platform}::${folder}` : folder;
+    const arr = map.get(key) ?? [];
+    arr.push(c);
+    map.set(key, arr);
   }
-  if (typeof v === "string") {
-    const s = v.trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-    const t = Date.parse(s);
-    if (!Number.isNaN(t)) return new Date(t).toISOString().slice(0, 10);
-  }
-  return void 0;
-}
-function parseCookieString(raw) {
-  const out = {};
-  for (const part of (raw ?? "").split(";")) {
-    const i = part.indexOf("=");
-    if (i <= 0) continue;
-    const k = part.slice(0, i).trim();
-    const val = part.slice(i + 1).trim();
-    if (k) out[k] = val;
-  }
-  return out;
-}
-function cookieHeader(jar) {
-  return Object.entries(jar).map(([k, v]) => `${k}=${v}`).join("; ");
-}
-function makeItem(platform, nativeId, url, title) {
-  return { platform, nativeId, favId: `${platform}:${nativeId}`, url, title };
+  const groups = [...map.entries()].map(([key, items]) => {
+    let label;
+    if (platform === "all") {
+      const [p, f] = key.split("::");
+      label = `${PLATFORM_LABEL[p]} \xB7 ${f}`;
+    } else {
+      label = key;
+    }
+    return { key, label, items };
+  });
+  groups.sort((a, b) => {
+    const au = a.label.endsWith("\u672A\u5206\u7C7B") ? 1 : 0;
+    const bu = b.label.endsWith("\u672A\u5206\u7C7B") ? 1 : 0;
+    if (au !== bu) return au - bu;
+    if (b.items.length !== a.items.length) return b.items.length - a.items.length;
+    return a.label.localeCompare(b.label, "zh");
+  });
+  return groups;
 }
 
 // src/ui/dashboard.ts
@@ -228,6 +259,7 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
     super(leaf);
     this.plugin = plugin;
     this.filter = "all";
+    this.folderFilter = "all";
   }
   getViewType() {
     return VIEW_TYPE_FAV_DASHBOARD;
@@ -266,40 +298,65 @@ var FavDashboardView = class extends import_obsidian2.ItemView {
       }
     }
     const filterBar = el.createDiv({ cls: "fav-filter" });
-    const mkFilter = (key, label) => {
+    const mkPlatFilter = (key, label) => {
       const b = filterBar.createEl("button", { text: label, cls: key === this.filter ? "active" : "" });
       b.onclick = () => {
         this.filter = key;
+        this.folderFilter = "all";
         void this.render();
       };
     };
-    mkFilter("all", "\u5168\u90E8");
-    for (const p of PLATFORMS) mkFilter(p, PLATFORM_LABEL[p]);
+    mkPlatFilter("all", "\u5168\u90E8");
+    for (const p of PLATFORMS) mkPlatFilter(p, PLATFORM_LABEL[p]);
     const { cards, scanned, skipped } = await this.loadCards();
     const shown = cards.filter((c) => this.filter === "all" || c.platform === this.filter);
+    let groups = groupCards(shown, this.filter);
+    if (groups.length > 1) {
+      const folderBar = el.createDiv({ cls: "fav-filter" });
+      const allB = folderBar.createEl("button", { text: `\u5168\u90E8\u6587\u4EF6\u5939\uFF08${shown.length}\uFF09`, cls: this.folderFilter === "all" ? "active" : "" });
+      allB.onclick = () => {
+        this.folderFilter = "all";
+        void this.render();
+      };
+      for (const g of groups) {
+        const b = folderBar.createEl("button", { text: `${g.label}\uFF08${g.items.length}\uFF09`, cls: g.key === this.folderFilter ? "active" : "" });
+        b.onclick = () => {
+          this.folderFilter = g.key;
+          void this.render();
+        };
+      }
+      if (this.folderFilter !== "all") groups = groups.filter((g) => g.key === this.folderFilter);
+    }
     const now = /* @__PURE__ */ new Date();
     const stamp = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
     status.setText(
       `\u5171 ${cards.length} \u6761${this.filter !== "all" ? `\uFF08${PLATFORM_LABEL[this.filter]} ${shown.length} \u6761\uFF09` : ""} \xB7 \u626B\u63CF ${scanned} \u6587\u4EF6${skipped > 0 ? `\uFF08\u8DF3\u8FC7 ${skipped} \u65E0\u5143\u6570\u636E\uFF09` : ""} \xB7 \u66F4\u65B0\u4E8E ${stamp}`
     );
-    const grid = el.createDiv({ cls: "fav-cards" });
-    for (const c of shown.slice(0, 500)) {
-      const card = grid.createDiv({ cls: "fav-card" });
-      if (c.cover) {
-        const img = card.createEl("img", { cls: "fav-cover" });
-        img.src = c.cover;
-        img.loading = "lazy";
+    let rendered = 0;
+    for (const g of groups) {
+      if (this.folderFilter === "all") el.createEl("h4", { text: `${g.label}\uFF08${g.items.length}\uFF09`, cls: "fav-group-title" });
+      const grid = el.createDiv({ cls: "fav-cards" });
+      for (const c of g.items) {
+        if (rendered >= 500) break;
+        rendered += 1;
+        const card = grid.createDiv({ cls: "fav-card" });
+        if (c.cover) {
+          const img = card.createEl("img", { cls: "fav-cover" });
+          img.src = c.cover;
+          img.loading = "lazy";
+        }
+        const title = card.createDiv({ cls: "fav-title" });
+        const link = title.createEl("a", { text: c.title, cls: "internal-link" });
+        link.onclick = (e) => {
+          e.preventDefault();
+          void this.openNote(c.path);
+        };
+        const meta = card.createDiv({ cls: "fav-meta" });
+        const badge = meta.createSpan({ cls: `fav-badge ${c.platform}`, text: PLATFORM_LABEL[c.platform] });
+        meta.appendText(`${c.publishedAt ?? "\u672A\u77E5\u65F6\u95F4"}${c.author ? ` \xB7 ${c.author}` : ""}`);
+        if (c.description) card.createDiv({ cls: "fav-desc", text: c.description });
       }
-      const title = card.createDiv({ cls: "fav-title" });
-      const link = title.createEl("a", { text: c.title, cls: "internal-link" });
-      link.onclick = (e) => {
-        e.preventDefault();
-        void this.openNote(c.path);
-      };
-      const meta = card.createDiv({ cls: "fav-meta" });
-      const badge = meta.createSpan({ cls: `fav-badge ${c.platform}`, text: PLATFORM_LABEL[c.platform] });
-      meta.appendText(`${c.publishedAt ?? "\u672A\u77E5\u65F6\u95F4"}${c.author ? ` \xB7 ${c.author}` : ""}${c.folder ? ` \xB7 ${c.folder}` : ""}`);
-      if (c.description) card.createDiv({ cls: "fav-desc", text: c.description });
+      if (rendered >= 500) break;
     }
   }
   async openNote(path) {

@@ -1,6 +1,6 @@
 /** Dashboard 卡片墙：直接读 Vault md 文件，无数据库。红卡 = 上次挂掉的平台 + 一键重试。 */
 import { ItemView, Notice, WorkspaceLeaf } from "obsidian";
-import { cardFromNote } from "../markdown/writer.js";
+import { cardFromNote, groupCards } from "../markdown/writer.js";
 import type { CardData } from "../markdown/writer.js";
 import { PLATFORM_LABEL, PLATFORMS } from "../sync/model.js";
 import type { Platform } from "../sync/model.js";
@@ -10,6 +10,7 @@ export const VIEW_TYPE_FAV_DASHBOARD = "fav-collector-dashboard";
 
 export class FavDashboardView extends ItemView {
   private filter: Platform | "all" = "all";
+  private folderFilter = "all";
 
   constructor(
     leaf: WorkspaceLeaf,
@@ -62,45 +63,71 @@ export class FavDashboardView extends ItemView {
       }
     }
 
-    // 筛选
+    // 平台筛选
     const filterBar = el.createDiv({ cls: "fav-filter" });
-    const mkFilter = (key: Platform | "all", label: string) => {
+    const mkPlatFilter = (key: Platform | "all", label: string) => {
       const b = filterBar.createEl("button", { text: label, cls: key === this.filter ? "active" : "" });
       b.onclick = () => {
         this.filter = key;
+        this.folderFilter = "all";
         void this.render();
       };
     };
-    mkFilter("all", "全部");
-    for (const p of PLATFORMS) mkFilter(p, PLATFORM_LABEL[p]);
+    mkPlatFilter("all", "全部");
+    for (const p of PLATFORMS) mkPlatFilter(p, PLATFORM_LABEL[p]);
 
-    // 卡片
+    // 卡片（按收藏夹分组）
     const { cards, scanned, skipped } = await this.loadCards();
     const shown = cards.filter((c) => this.filter === "all" || c.platform === this.filter);
+    let groups = groupCards(shown, this.filter);
+    // 收藏夹筛选条
+    if (groups.length > 1) {
+      const folderBar = el.createDiv({ cls: "fav-filter" });
+      const allB = folderBar.createEl("button", { text: `全部文件夹（${shown.length}）`, cls: this.folderFilter === "all" ? "active" : "" });
+      allB.onclick = () => {
+        this.folderFilter = "all";
+        void this.render();
+      };
+      for (const g of groups) {
+        const b = folderBar.createEl("button", { text: `${g.label}（${g.items.length}）`, cls: g.key === this.folderFilter ? "active" : "" });
+        b.onclick = () => {
+          this.folderFilter = g.key;
+          void this.render();
+        };
+      }
+      if (this.folderFilter !== "all") groups = groups.filter((g) => g.key === this.folderFilter);
+    }
     const now = new Date();
     const stamp = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`;
     status.setText(
       `共 ${cards.length} 条${this.filter !== "all" ? `（${PLATFORM_LABEL[this.filter as Platform]} ${shown.length} 条）` : ""} · 扫描 ${scanned} 文件${skipped > 0 ? `（跳过 ${skipped} 无元数据）` : ""} · 更新于 ${stamp}`,
     );
-    const grid = el.createDiv({ cls: "fav-cards" });
-    for (const c of shown.slice(0, 500)) {
-      const card = grid.createDiv({ cls: "fav-card" });
-      if (c.cover) {
-        const img = card.createEl("img", { cls: "fav-cover" });
-        img.src = c.cover;
-        img.loading = "lazy";
+    let rendered = 0;
+    for (const g of groups) {
+      if (this.folderFilter === "all") el.createEl("h4", { text: `${g.label}（${g.items.length}）`, cls: "fav-group-title" });
+      const grid = el.createDiv({ cls: "fav-cards" });
+      for (const c of g.items) {
+        if (rendered >= 500) break;
+        rendered += 1;
+        const card = grid.createDiv({ cls: "fav-card" });
+        if (c.cover) {
+          const img = card.createEl("img", { cls: "fav-cover" });
+          img.src = c.cover;
+          img.loading = "lazy";
+        }
+        const title = card.createDiv({ cls: "fav-title" });
+        const link = title.createEl("a", { text: c.title, cls: "internal-link" });
+        link.onclick = (e) => {
+          e.preventDefault();
+          void this.openNote(c.path);
+        };
+        const meta = card.createDiv({ cls: "fav-meta" });
+        const badge = meta.createSpan({ cls: `fav-badge ${c.platform}`, text: PLATFORM_LABEL[c.platform] });
+        void badge;
+        meta.appendText(`${c.publishedAt ?? "未知时间"}${c.author ? ` · ${c.author}` : ""}`);
+        if (c.description) card.createDiv({ cls: "fav-desc", text: c.description });
       }
-      const title = card.createDiv({ cls: "fav-title" });
-      const link = title.createEl("a", { text: c.title, cls: "internal-link" });
-      link.onclick = (e) => {
-        e.preventDefault();
-        void this.openNote(c.path);
-      };
-      const meta = card.createDiv({ cls: "fav-meta" });
-      const badge = meta.createSpan({ cls: `fav-badge ${c.platform}`, text: PLATFORM_LABEL[c.platform] });
-      void badge;
-      meta.appendText(`${c.publishedAt ?? "未知时间"}${c.author ? ` · ${c.author}` : ""}${c.folder ? ` · ${c.folder}` : ""}`);
-      if (c.description) card.createDiv({ cls: "fav-desc", text: c.description });
+      if (rendered >= 500) break;
     }
   }
 

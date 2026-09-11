@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNote, cardFromNote, notePathFor, parseFrontmatter } from "../src/markdown/writer.js";
+import { buildNote, cardFromNote, groupCards, notePathFor, parseFrontmatter } from "../src/markdown/writer.js";
 import { makeItem } from "../src/sync/model.js";
 
 describe("writer", () => {
@@ -42,5 +42,29 @@ describe("writer", () => {
   it("cardFromNote skips legacy system-zone marker heading", () => {
     const md = '---\nplatform: "youtube"\nurl: "https://u"\n---\n# Fav Collector System Zone\nxxx\n# 真标题\n';
     expect(cardFromNote("a.md", md)?.title).toBe("真标题");
+  });
+
+  it("cardFromNote derives folder from file path", () => {
+    const it = makeItem("bilibili", "1", "https://u/1", "T");
+    const md = buildNote(it);
+    const card = cardFromNote("Fav Collector/bilibili/默认收藏夹/T.md", md);
+    expect(card?.folder).toBe("默认收藏夹");
+    const flat = cardFromNote("Fav Collector/bilibili/T.md", md);
+    expect(flat?.folder).toBeUndefined();
+  });
+
+  it("groupCards groups by folder with 未分类 last", () => {
+    const mk = (folder?: string, platform: "bilibili" | "youtube" = "bilibili") => ({
+      path: "p",
+      platform,
+      title: "t",
+      url: "u",
+      folder,
+    });
+    const groups = groupCards([mk("B"), mk(), mk("A"), mk("B")], "bilibili");
+    expect(groups.map((g) => g.label)).toEqual(["B", "A", "未分类"]);
+    expect(groups[0].items).toHaveLength(2);
+    const all = groupCards([mk("B"), mk("X", "youtube")], "all");
+    expect(all.map((g) => g.label)).toEqual(["B站 · B", "YouTube · X"]);
   });
 });

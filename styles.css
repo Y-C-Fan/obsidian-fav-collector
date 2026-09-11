@@ -20,4 +20,5 @@
 .fav-badge.zhihu { background: #0066ff; }
 .fav-badge.x { background: #333; }
 .fav-badge.github { background: #6e40c9; }
+.fav-group-title { margin: 14px 0 8px; font-size: 14px; }
 .fav-status { color: var(--text-muted); font-size: 12px; }
