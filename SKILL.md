@@ -54,7 +54,7 @@ node <engine.cjs> --data-dir <数据目录> expand "<target>" [--max-chars N]
 
 - 知乎：无 Secret 时官方 API 只覆盖**公开**收藏夹；私密收藏需浏览器登录态兜底。
 - X / 知乎风控较严：expand 逐条调用，条与条之间停几秒；`fetched: false` 的多用缓存。
-- YouTube：需要 `yt-dlp` 可用 + `<数据目录>/ytdl_cookies.txt`（本人登录态，拉 Watch Later 必需）。
+- YouTube：需要 `yt-dlp` 可用；登录态 Cookie 通过插件设置页导入（导入成功会自动生成 `ytdl_cookies.txt`，拉 Watch Later 必需；Cookie 过期需重新导出导入）。
 - B站：WBI 直连，通常最稳；评论随详情一起回写（最多保留库内已有）。
 
 ## 已展开判断

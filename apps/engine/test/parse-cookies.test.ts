@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseStoredCookies } from "../src/index.js";
+import { parseStoredCookies, toNetscapeCookies } from "../src/index.js";
 
 describe("parseStoredCookies", () => {
   it("parses JSON array format", () => {
@@ -25,5 +25,21 @@ describe("parseStoredCookies", () => {
 
   it("returns [] for garbage", () => {
     expect(parseStoredCookies("no-equals-here", "bilibili")).toHaveLength(0);
+  });
+});
+
+describe("toNetscapeCookies", () => {
+  it("emits Netscape format with secure flags and expiries", () => {
+    const out = toNetscapeCookies(
+      [
+        { name: "SID", value: "s1", domain: ".youtube.com", path: "/" },
+        { name: "__Secure-1PSID", value: "s2", domain: "youtube.com", path: "/" },
+      ],
+      new Date("2026-01-01T00:00:00Z").getTime(),
+    );
+    const lines = out.trim().split("\n");
+    expect(lines[0]).toBe("# Netscape HTTP Cookie File");
+    expect(lines[2]).toBe(".youtube.com\tTRUE\t/\tFALSE\t1798761600\tSID\ts1");
+    expect(lines[3]).toBe(".youtube.com\tTRUE\t/\tTRUE\t1798761600\t__Secure-1PSID\ts2");
   });
 });

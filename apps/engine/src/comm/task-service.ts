@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type { OmniMessage } from "@omni/shared-core";
 import type { AIProvider } from "@omni/ai";
@@ -18,7 +19,7 @@ import type { CollectionDTO } from "@omni/shared-core";
 import { AiQueueRunner } from "../ai/ai-queue-runner.js";
 import { ContentGroupService, normalizeEntity } from "../group/content-group-service.js";
 import { FileIndexer } from "../fileindex/file-indexer.js";
-import { BrowserSessionManager, parseStoredCookies } from "../sync/browser-session.js";
+import { BrowserSessionManager, parseStoredCookies, toNetscapeCookies } from "../sync/browser-session.js";
 import { CookieCipher } from "../crypto/cookie-cipher.js";
 import { SUPPORTED_PLATFORMS, SyncRunner } from "../sync/sync-runner.js";
 import type { SyncMode } from "../sync/sync-pipeline.js";
@@ -180,7 +181,17 @@ export class TaskService {
       const accounts = new AccountRepository(this.db);
       accounts.getOrCreate(platform);
       accounts.setStatus(platform, "active");
-      return complete(msg.request_id, { task: "cookie_import", platform, cookie_count: parsed.length });
+      // YouTube 同步走 yt-dlp --cookies 文件：导入成功即同步生成，免手工维护
+      let ytdlCookies = false;
+      if (platform === "youtube") {
+        fs.writeFileSync(
+          path.join(this.opts.dataDir, "ytdl_cookies.txt"),
+          toNetscapeCookies(parsed),
+          "utf8",
+        );
+        ytdlCookies = true;
+      }
+      return complete(msg.request_id, { task: "cookie_import", platform, cookie_count: parsed.length, ytdl_cookies: ytdlCookies });
     } catch (err) {
       return error(msg.request_id, "AUTH_002", `AUTH_002: ${(err as Error).message}`);
     }

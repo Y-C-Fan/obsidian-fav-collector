@@ -51,6 +51,24 @@ export function parseStoredCookies(plain: string, platform: string): StoredCooki
   return out;
 }
 
+/**
+ * 转 Netscape cookie 文件格式（给 yt-dlp --cookies 用）。
+ * Secure 判定：__Secure- / __Host- 前缀为 TRUE；其余 FALSE。
+ */
+export function toNetscapeCookies(cookies: StoredCookie[], nowMs: number = Date.now()): string {
+  const lines = ["# Netscape HTTP Cookie File", "# generated locally by fav-collector, do not share"];
+  const fallbackExp = Math.floor(nowMs / 1000) + 365 * 86400;
+  for (const c of cookies) {
+    const rawDomain = c.domain || ".youtube.com";
+    const domain = rawDomain.startsWith(".") ? rawDomain : `.${rawDomain}`;
+    const secure = /^__(Secure|Host)-/i.test(c.name) ? "TRUE" : "FALSE";
+    const value = String(c.value ?? "").replace(/[\t\r\n]/g, "");
+    const expires = c.expires && c.expires > 0 ? Math.floor(c.expires) : fallbackExp;
+    lines.push([domain, "TRUE", c.path ?? "/", secure, String(expires), c.name, value].join("\t"));
+  }
+  return `${lines.join("\n")}\n`;
+}
+
 export interface BrowserSessionOptions {
   dataDir: string;
   headless?: boolean;

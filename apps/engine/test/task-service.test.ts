@@ -490,6 +490,27 @@ describe("TaskService (internal, fake provider)", () => {
     }
   });
 
+  it("COOKIE_IMPORT for youtube also writes ytdl_cookies.txt (Netscape)", async () => {
+    const dataDir = makeDataDir();
+    const service = new TaskService({ dataDir, migrationsDir: path.join(dataDir, "migrations") });
+    try {
+      const h = service.handlers();
+      const json = JSON.stringify([
+        { name: "SID", value: "s1", domain: ".youtube.com", path: "/" },
+        { name: "__Secure-1PSID", value: "s2", domain: ".youtube.com", path: "/" },
+      ]);
+      const ok = await h.COOKIE_IMPORT?.(makeMsg("COOKIE_IMPORT", { platform: "youtube", cookies_json: json }));
+      expect(ok?.message_type).toBe("TASK_COMPLETE");
+      expect(ok?.payload?.ytdl_cookies).toBe(true);
+      const netscape = fs.readFileSync(path.join(dataDir, "ytdl_cookies.txt"), "utf8");
+      expect(netscape).toContain("# Netscape HTTP Cookie File");
+      expect(netscape).toContain("\tSID\ts1");
+      expect(netscape).toContain("\tTRUE\t/\tTRUE\t");
+    } finally {
+      service.dispose();
+    }
+  });
+
   it("RULE_LIST returns rules with impact and recent changes", async () => {
     const dataDir = makeDataDir();
     const service = new TaskService({ dataDir, migrationsDir: path.join(dataDir, "migrations") });

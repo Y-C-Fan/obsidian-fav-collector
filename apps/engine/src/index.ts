@@ -18,7 +18,7 @@ export { SyncTaskState } from "./sync/sync-task-state.js";
 export { SyncPipeline } from "./sync/sync-pipeline.js";
 export type { SyncMode, SyncReport, SyncPipelineDeps } from "./sync/sync-pipeline.js";
 export { BrowserSessionManager } from "./sync/browser-session.js";
-export { parseStoredCookies } from "./sync/browser-session.js";
+export { parseStoredCookies, toNetscapeCookies } from "./sync/browser-session.js";
 export type { BrowserSessionOptions, StoredCookie } from "./sync/browser-session.js";
 export { SyncRunner, SUPPORTED_PLATFORMS, buildAdapter } from "./sync/sync-runner.js";
 export type { SyncRunnerOptions } from "./sync/sync-runner.js";
