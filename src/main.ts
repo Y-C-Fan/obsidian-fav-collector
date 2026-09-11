@@ -25,6 +25,7 @@ export default class FavCollectorPlugin extends Plugin {
     this.registerView(VIEW_TYPE_FAV_DASHBOARD, (leaf: WorkspaceLeaf) => new FavDashboardView(leaf, this));
 
     this.addRibbonIcon("refresh-cw", "同步全部收藏", () => void this.syncAll());
+    this.addRibbonIcon("layout-dashboard", "打开收藏总览", () => void this.openDashboard());
     this.addCommand({ id: "sync-all", name: "同步全部收藏", callback: () => void this.syncAll() });
     this.addCommand({
       id: "open-dashboard",

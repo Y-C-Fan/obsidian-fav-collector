@@ -748,6 +748,7 @@ var FavCollectorPlugin = class extends import_obsidian3.Plugin {
     this.setStatus("Fav: \u5C31\u7EEA");
     this.registerView(VIEW_TYPE_FAV_DASHBOARD, (leaf) => new FavDashboardView(leaf, this));
     this.addRibbonIcon("refresh-cw", "\u540C\u6B65\u5168\u90E8\u6536\u85CF", () => void this.syncAll());
+    this.addRibbonIcon("layout-dashboard", "\u6253\u5F00\u6536\u85CF\u603B\u89C8", () => void this.openDashboard());
     this.addCommand({ id: "sync-all", name: "\u540C\u6B65\u5168\u90E8\u6536\u85CF", callback: () => void this.syncAll() });
     this.addCommand({
       id: "open-dashboard",
