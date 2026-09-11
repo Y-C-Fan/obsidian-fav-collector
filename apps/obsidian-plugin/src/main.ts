@@ -375,11 +375,37 @@ export default class OmniCollectorPlugin extends Plugin {
     }
     const builder = new MarkdownBuilder();
     let count = 0;
+    let moved = 0;
+    let cleaned = 0;
     for (const dto of collections) {
       const filePath = notePathFor(dto);
       const dir = filePath.slice(0, filePath.lastIndexOf("/"));
       if (!(await vault.adapter.exists(dir))) {
         await vault.createFolder(dir);
+      }
+      // 旧版平铺路径（Fav Collector/{平台}/{标题}.md）→ 新文件夹结构：搬家，保留用户区
+      const legacyPath = `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}.md`;
+      try {
+        if (filePath !== legacyPath && (await vault.adapter.exists(legacyPath))) {
+          if (!(await vault.adapter.exists(filePath))) {
+            await vault.adapter.rename(legacyPath, filePath);
+            moved += 1;
+          } else {
+            // 新旧并存：旧文件用户区为空才算孤儿，可安全删除；有手写内容则保留
+            const oldContent = await vault.adapter.read(legacyPath);
+            if (builder.validateMarkers(oldContent)) {
+              const zone = builder.extractUserZone(oldContent);
+              const userTouched =
+                (zone.note ?? "").trim() || (zone.starredComments ?? "").trim() || (zone.rating ?? "").trim();
+              if (!userTouched) {
+                await vault.adapter.remove(legacyPath);
+                cleaned += 1;
+              }
+            }
+          }
+        }
+      } catch {
+        // 搬家失败不中断，后续按正常流程写新文件
       }
       try {
         if (await vault.adapter.exists(filePath)) {
@@ -449,7 +475,7 @@ export default class OmniCollectorPlugin extends Plugin {
         }
       }
     }
-    new Notice(`Fav Collector: 已生成/更新 ${count} 个 Markdown`);
+    new Notice(`Fav Collector: 已生成/更新 ${count} 个 Markdown${moved > 0 ? `（搬家 ${moved} 个）` : ""}${cleaned > 0 ? `（清理旧文件 ${cleaned} 个）` : ""}`);
   }
 
   private async openCollectionList(platform?: string): Promise<void> {
