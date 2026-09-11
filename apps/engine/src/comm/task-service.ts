@@ -20,7 +20,6 @@ import { ContentGroupService, normalizeEntity } from "../group/content-group-ser
 import { FileIndexer } from "../fileindex/file-indexer.js";
 import { BrowserSessionManager, parseStoredCookies } from "../sync/browser-session.js";
 import { CookieCipher } from "../crypto/cookie-cipher.js";
-import { XiaohongshuAdapter } from "@omni/adapters";
 import { SUPPORTED_PLATFORMS, SyncRunner } from "../sync/sync-runner.js";
 import type { SyncMode } from "../sync/sync-pipeline.js";
 import type { CommHandler } from "./comm-server.js";
@@ -313,6 +312,8 @@ export class TaskService {
             author: c.author ?? undefined,
             coverUrl: c.cover_url ?? undefined,
             description: c.description ?? undefined,
+            transcript: c.transcript ?? undefined,
+            expandedAt: c.detail_synced === 1 ? (c.last_synced_at ?? undefined) : undefined,
             contentType: c.content_type,
             saveType: c.save_type,
             contentStatus: c.content_status,
@@ -362,7 +363,7 @@ export class TaskService {
               )
               .get(platform) as { n: number }
           ).n;
-        const platforms = ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"].map((platform) => {
+        const platforms = ["bilibili", "youtube", "zhihu", "x"].map((platform) => {
           const account = accounts.find((a) => a.platform === platform);
           const healthRow = health.find((h) => h.adapter === platform);
           let level: "green" | "yellow" | "red" = "green";
@@ -438,6 +439,8 @@ export class TaskService {
           author: col.author ?? undefined,
           coverUrl: col.cover_url ?? undefined,
           description: col.description ?? undefined,
+          transcript: col.transcript ?? undefined,
+          expandedAt: col.detail_synced === 1 ? (col.last_synced_at ?? undefined) : undefined,
           contentType: col.content_type,
           saveType: col.save_type,
           contentStatus: col.content_status,
@@ -827,7 +830,7 @@ export class TaskService {
     }
   }
 
-  /** 按需抓取收藏网页正文（不落盘）：小红书走签名 feed，其余浏览器提取。 */
+  /** 按需抓取收藏网页正文（不落盘）：浏览器提取 main 正文。 */
   async fetchText(msg: OmniMessage): Promise<OmniMessage> {
     const url = String(msg.payload.url ?? '');
     if (!url) return error(msg.request_id, 'FETCH_001', 'FETCH_001: missing url');
@@ -839,27 +842,6 @@ export class TaskService {
     const platform = col?.platform ?? String(msg.payload.platform ?? '');
     try {
       const ctx = await this.getFetchContext(platform);
-      if (col?.platform === 'xiaohongshu') {
-        const extra = (() => {
-          try { return JSON.parse(col.extra_json ?? '{}') as { xsecToken?: string }; } catch { return {}; }
-        })();
-        const noteId = /(?:explore|discovery\/item|note)\/([0-9a-zA-Z]+)/.exec(url)?.[1];
-        if (noteId && extra.xsecToken) {
-          const adapter = new XiaohongshuAdapter();
-          const result = await adapter.fetchNoteText(ctx, noteId, extra.xsecToken);
-          if (result) {
-            const payload = {
-              task: 'fetch', url, platform,
-              title: result.title,
-              text: result.text.slice(0, 20000),
-              comments: result.comments,
-            };
-            this.fetchCache.set(url, { ts: Date.now(), result: payload });
-            return complete(msg.request_id, payload);
-          }
-        }
-        return error(msg.request_id, 'FETCH_002', 'FETCH_002: XHS text needs xsec_token (re-sync required after risk-control cooldown)');
-      }
       const page = await ctx.newPage();
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});

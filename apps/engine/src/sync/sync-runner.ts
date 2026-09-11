@@ -14,7 +14,6 @@ import {
   BaseAdapter,
   BilibiliAdapter,
   XAdapter,
-  XiaohongshuAdapter,
   YouTubeAdapter,
   ZhihuAdapter,
 } from "@omni/adapters";
@@ -22,18 +21,42 @@ import { BrowserSessionManager } from "./browser-session.js";
 import { SyncPipeline, type SyncMode, type SyncReport } from "./sync-pipeline.js";
 import { CookieCipher } from "../crypto/cookie-cipher.js";
 
-/** 平台 -> Adapter 工厂（five-platform 版：B站 / YouTube / 小红书 / 知乎 / X）。 */
+/** 平台 -> Adapter 工厂（B站 / YouTube-WL / 知乎 / X-Bookmarks）。 */
 const ADAPTER_FACTORIES: Record<string, () => BaseAdapter> = {
   bilibili: () => new BilibiliAdapter(),
   youtube: () => new YouTubeAdapter(),
-  xiaohongshu: () => new XiaohongshuAdapter(),
   zhihu: () => new ZhihuAdapter(),
   x: () => new XAdapter(),
 };
 
 export const SUPPORTED_PLATFORMS = Object.keys(ADAPTER_FACTORIES);
-/** 指纹绑定平台需复用持久化 Profile；当前五平台均走 cookie/storageState 注入。 */
+/** 指纹绑定平台需复用持久化 Profile；当前四平台均走 cookie/storageState 注入。 */
 const PERSISTENT_PROFILE_PLATFORMS = new Set<string>([]);
+
+/**
+ * 按平台构造 Adapter（含各平台凭据/选项注入；SyncRunner 与 expand 共用）。
+ * 知乎开放平台 Access Secret 存于本地加密区（cookies/zhihu_secret.enc）。
+ */
+export function buildAdapter(p: string, dataDir: string, rules?: RuleCenter): BaseAdapter {
+  if (p === "zhihu") {
+    let secret: string | undefined;
+    try {
+      secret = new CookieCipher(dataDir).decryptCookie("zhihu_secret") ?? undefined;
+    } catch {
+      secret = undefined;
+    }
+    return new ZhihuAdapter({ secret });
+  }
+  if (p === "youtube") {
+    const cmdRaw = rules?.get("ytdlp_command");
+    return new YouTubeAdapter({
+      ytDlpCommand: cmdRaw ? String(cmdRaw).split(",").map((s: string) => s.trim()).filter(Boolean) : undefined,
+      cookiesFile: path.join(dataDir, "ytdl_cookies.txt"),
+      proxyUrl: rules?.get("ytdlp_proxy") || undefined,
+    });
+  }
+  return ADAPTER_FACTORIES[p]?.() ?? new BilibiliAdapter();
+}
 
 export interface SyncRunnerOptions {
   dataDir: string;
@@ -191,24 +214,6 @@ export class SyncRunner {
   }
 
   private adapterFor(p: string, rules: RuleCenter): BaseAdapter {
-    if (p === "zhihu") {
-      // 知乎开放平台 Access Secret 存于本地加密区（cookies/zhihu_secret.enc），由设置页导入
-      let secret: string | undefined;
-      try {
-        secret = new CookieCipher(this.opts.dataDir).decryptCookie("zhihu_secret") ?? undefined;
-      } catch {
-        secret = undefined;
-      }
-      return new ZhihuAdapter({ secret });
-    }
-    if (p === "youtube") {
-      const cmdRaw = rules.get("ytdlp_command");
-      return new YouTubeAdapter({
-        ytDlpCommand: cmdRaw ? cmdRaw.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
-        cookiesFile: path.join(this.opts.dataDir, "ytdl_cookies.txt"),
-        proxyUrl: rules.get("ytdlp_proxy") || undefined,
-      });
-    }
-    return ADAPTER_FACTORIES[p]?.() ?? new BilibiliAdapter();
+    return buildAdapter(p, this.opts.dataDir, rules);
   }
 }

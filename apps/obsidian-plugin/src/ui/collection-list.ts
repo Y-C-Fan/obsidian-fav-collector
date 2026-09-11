@@ -6,7 +6,6 @@ export const VIEW_TYPE_OMNI_LIST = "omni-collector-list";
 
 export interface ListDataSource {
   list(): Promise<CollectionDTO[]>;
-  listLocalFiles(): Promise<Array<{ file_path: string; file_name: string; file_type: string | null; linked_collection_id: string | null; linked_title: string | null }>>;
   onOpenDetail(collectionId: string): void;
   onBatch(ids: string[], action: "tag" | "topic" | "priority" | "organize" | "convert", value: string): Promise<void>;
   getDefaultViewMode(): "list" | "card";
@@ -14,15 +13,12 @@ export interface ListDataSource {
   onTag(collectionId: string, tag: string): Promise<void>;
   onTopic(collectionId: string, topic: string): Promise<void>;
   onPriority(collectionId: string, priority: CollectionDTO["priority"]): Promise<void>;
-  onConvert(collectionId: string, to: "favorited" | "archived"): Promise<void>;
   ensureCover(url: string): Promise<string | null>;
-  openLocalFile(filePath: string): void;
 }
 
 const PLATFORMS = [
   { key: "bilibili", label: "B站" },
   { key: "youtube", label: "YouTube" },
-  { key: "xiaohongshu", label: "小红书" },
   { key: "zhihu", label: "知乎" },
   { key: "x", label: "X" },
 ];
@@ -82,12 +78,10 @@ class PromptModal extends Modal {
 
 export class OmniCollectionListView extends ItemView {
   private items: CollectionDTO[] = [];
-  private localFiles: Array<{ file_path: string; file_name: string; file_type: string | null; linked_collection_id: string | null; linked_title: string | null }> = [];
   private statusFilter: "all" | "unorganized" | "organized" | "archived" = "all";
   private saveTypeFilter: "all" | "favorited" | "watch_later" | "liked" = "all";
   private priorityFilter: "all" | CollectionDTO["priority"] = "all";
   private platformFilter: string | null = null;
-  private mode: "collections" | "local" = "collections";
   private viewMode: "list" | "card" = "list";
   private coverCache = new Map<string, string>();
   private selecting = false;
@@ -140,11 +134,7 @@ export class OmniCollectionListView extends ItemView {
   private renderToolbar(): void {
     const tb = this.toolbarEl;
     tb.empty();
-    tb.createEl('button', { text: this.mode === 'collections' ? '收藏' : '收藏', cls: `omni-chip${this.mode === 'collections' ? ' omni-chip-active' : ''}` })
-      .addEventListener('click', () => { this.mode = 'collections'; this.renderToolbar(); void this.renderList(); });
-    tb.createEl('button', { text: '本地文件', cls: `omni-chip${this.mode === 'local' ? ' omni-chip-active' : ''}` })
-      .addEventListener('click', () => { this.mode = 'local'; this.renderToolbar(); void this.renderList(); });
-    if (this.mode === 'collections') {
+    {
       tb.createEl('span', { text: '｜', cls: 'omni-toolbar-sep' });
       tb.createEl('button', { text: '全部平台', cls: `omni-chip${this.platformFilter === null ? ' omni-chip-active' : ''}` })
         .addEventListener('click', () => { this.platformFilter = null; this.renderToolbar(); void this.renderList(); });
@@ -179,20 +169,16 @@ export class OmniCollectionListView extends ItemView {
     }
     tb.createEl('button', { text: '刷新', cls: 'omni-chip omni-chip-refresh' })
       .addEventListener('click', () => { void this.refreshList(); });
-    if (this.mode === 'collections') {
     tb.createEl('button', { text: this.viewMode === 'list' ? '切换卡片视图' : '切换列表视图', cls: 'omni-chip' })
       .addEventListener('click', () => { this.viewMode = this.viewMode === 'list' ? 'card' : 'list'; this.renderToolbar(); void this.renderList(); });
-    if (this.mode === 'collections') {
-      tb.createEl('button', { text: this.selecting ? '完成选择' : '批量选择', cls: `omni-chip${this.selecting ? ' omni-chip-active' : ''}` })
-        .addEventListener('click', () => {
-          this.selecting = !this.selecting;
-          this.selected.clear();
-          this.renderToolbar();
-          this.renderBatchBar();
-          void this.renderList();
-        });
-    }
-  }
+    tb.createEl('button', { text: this.selecting ? '完成选择' : '批量选择', cls: `omni-chip${this.selecting ? ' omni-chip-active' : ''}` })
+      .addEventListener('click', () => {
+        this.selecting = !this.selecting;
+        this.selected.clear();
+        this.renderToolbar();
+        this.renderBatchBar();
+        void this.renderList();
+      });
   }
 
   private async refreshList(): Promise<void> {
@@ -207,24 +193,6 @@ export class OmniCollectionListView extends ItemView {
 
   private async renderList(): Promise<void> {
     this.listEl.empty();
-    if (this.mode === 'local') {
-      this.totalEl.setText(`本地文件 ${this.localFiles.length} 个`);
-      if (this.localFiles.length === 0) {
-        this.listEl.createEl('div', { text: '暂无本地文件（到设置加入目录并扫描）', cls: 'omni-empty' });
-        return;
-      }
-      for (const f of this.localFiles) {
-        const row = this.listEl.createEl('div', { cls: 'omni-row' });
-        const main = row.createEl('div', { cls: 'omni-row-main' });
-        main.createEl('div', { text: f.file_name || f.file_path.split(/[\\/]/).pop() || f.file_path, cls: 'omni-title' });
-        const meta = main.createEl('div', { cls: 'omni-row-meta' });
-        meta.createEl('span', { text: f.file_type ?? 'file', cls: 'omni-badge omni-badge-platform' });
-        meta.createEl('span', { text: f.linked_title ? `关联：${f.linked_title}` : '未关联', cls: 'omni-badge' });
-        meta.createEl('span', { text: f.file_path, cls: 'omni-meta-text' });
-        row.createEl('button', { text: '打开', cls: 'omni-act' }).addEventListener('click', () => this.source.openLocalFile(f.file_path));
-      }
-      return;
-    }
     const filter: CollectionFilter = {};
     if (this.statusFilter === 'unorganized') filter.status = 'unorganized';
     else if (this.statusFilter === 'organized') filter.status = 'organized';
@@ -289,12 +257,6 @@ export class OmniCollectionListView extends ItemView {
       meta.createEl('span', { text: new Date(item.collectedAt).toLocaleDateString('zh-CN'), cls: 'omni-meta-text' });
 
       const actions = row.createEl('div', { cls: 'omni-row-actions' });
-      if (item.saveType === 'watch_later') {
-        const fav = actions.createEl('button', { text: '转收藏', cls: 'omni-act' });
-        fav.addEventListener('click', () => { void this.source.onConvert(item.id, 'favorited').then(() => { item.saveType = 'favorited'; void this.renderList(); }); });
-        const done = actions.createEl('button', { text: '归档完成', cls: 'omni-act' });
-        done.addEventListener('click', () => { void this.source.onConvert(item.id, 'archived').then(() => { item.organizeStatus = 'archived'; void this.renderList(); }); });
-      }
       this.addRowButton(actions, '＋Tag', () => this.promptTag(item));
       this.addRowButton(actions, '＋Topic', () => this.promptTopic(item));
       this.addPriorityButton(actions, item);
@@ -409,8 +371,6 @@ export class OmniCollectionListView extends ItemView {
     bar.createEl("button", { text: "批量 Topic", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.promptBatch("topic"));
     bar.createEl("button", { text: "设为重要", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("priority", "important"));
     bar.createEl("button", { text: "标记已整理", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("organize", "organized"));
-    bar.createEl("button", { text: "转收藏", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("convert", "favorited"));
-    bar.createEl("button", { text: "归档", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("convert", "archived"));
   }
 
   private promptBatch(action: "tag" | "topic"): void {

@@ -6,13 +6,10 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings, type OmniSettings } from 
 import { OmniSettingTab } from "./settings-tab.js";
 import { EngineClient } from "./comm/socket-client.js";
 import { OmniSidebarView, VIEW_TYPE_OMNI, type OmniController } from "./ui/sidebar.js";
-import { OmniAiReviewView, VIEW_TYPE_OMNI_AI, type AiReviewSource } from "./ui/ai-review.js";
 import { OmniTagTopicView, VIEW_TYPE_OMNI_TAGS, type TagTopicSource } from "./ui/tag-topic.js";
 import { OmniCollectionListView, VIEW_TYPE_OMNI_LIST, type ListDataSource } from "./ui/collection-list.js";
 import { OmniCollectionDetailView, VIEW_TYPE_OMNI_DETAIL, type DetailDataSource } from "./ui/collection-detail.js";
 import { MarkdownBuilder, sanitizeFilename } from "./markdown/markdown-builder.js";
-import { openManualAIModal } from "./ui/manual-ai.js";
-import { openManualAIBatchModal } from "./ui/manual-ai-batch.js";
 import { dailyCapReached, isSyncDue } from "./sync/sync-scheduler.js";
 
 export default class OmniCollectorPlugin extends Plugin {
@@ -38,7 +35,6 @@ export default class OmniCollectorPlugin extends Plugin {
       this.pluginSettings.wsToken = randomUUID();
     }
     await saveSettings(this, this.pluginSettings);
-    this.reloadAutoScan();
     this.reloadSyncScheduler();
 
     this.engine = new EngineClient({
@@ -54,7 +50,6 @@ export default class OmniCollectorPlugin extends Plugin {
     this.registerView(VIEW_TYPE_OMNI_LIST, (leaf) => {
       const source: ListDataSource = {
         list: () => this.engine.listCollections(),
-        listLocalFiles: () => this.engine.listLocalFiles(),
         onOpenDetail: (id) => void this.openCollectionDetail(id),
         onBatch: (ids, action, value) => this.engine.batch(ids, action, value).then(() => undefined),
         getDefaultViewMode: () => this.pluginSettings.viewMode,
@@ -62,12 +57,7 @@ export default class OmniCollectorPlugin extends Plugin {
         onTag: (id, tag) => this.engine.addTag(id, tag).then(() => undefined),
         onTopic: (id, topic) => this.engine.addTopic(id, topic).then(() => undefined),
         onPriority: (id, priority) => this.engine.setPriority(id, priority).then(() => undefined),
-        onConvert: (id, to) => this.engine.convertCollection(id, to).then(() => undefined),
         ensureCover: (url) => this.ensureCover(url),
-        openLocalFile: (filePath) => {
-          const file = this.app.vault.getAbstractFileByPath(filePath);
-          if (file) void this.app.workspace.getLeaf(false).openFile(file as import("obsidian").TFile);
-        },
       };
       return new OmniCollectionListView(leaf, source);
     });
@@ -79,24 +69,9 @@ export default class OmniCollectorPlugin extends Plugin {
         onPriority: (id, p) => this.engine.setPriority(id, p).then(() => undefined),
         onTag: (id, t) => this.engine.addTag(id, t).then(() => undefined),
         onTopic: (id, t) => this.engine.addTopic(id, t).then(() => undefined),
-        openLocalFile: (filePath) => {
-          const file = this.app.vault.getAbstractFileByPath(filePath);
-          if (file) void this.app.workspace.getLeaf(false).openFile(file as import("obsidian").TFile);
-        },
         ensureCover: (url) => this.ensureCover(url),
-        submitManualAI: (id, reply) => this.engine.submitManualAI(id, reply).then(() => undefined),
       };
       return new OmniCollectionDetailView(leaf, source);
-    });
-    this.registerView(VIEW_TYPE_OMNI_AI, (leaf) => {
-      const source: AiReviewSource = {
-        listPending: () => this.engine.listAiSuggestions(),
-        review: (id, status) => this.engine.reviewAiSuggestion(id, status).then(() => undefined),
-        undo: (id) => this.engine.undoAiSuggestion(id).then(() => undefined),
-        openManualAI: () => void this.openManualAIPicker(),
-        openManualAIBatch: () => void this.openManualAIBatchPicker(),
-      };
-      return new OmniAiReviewView(leaf, source);
     });
     this.registerView(VIEW_TYPE_OMNI_TAGS, (leaf) => {
       const source: TagTopicSource = {
@@ -114,31 +89,10 @@ export default class OmniCollectorPlugin extends Plugin {
     });
     this.addSettingTab(new OmniSettingTab(this.app, this));
     this.addCommand({
-      id: "open-ai-review",
-      name: "打开 AI 建议审核",
-      callback: () => {
-        void this.openAiReviewView();
-      },
-    });
-    this.addCommand({
       id: "open-tag-topic-manager",
       name: "打开 Tag/Topic 管理",
       callback: () => {
         void this.openTagTopicView();
-      },
-    });
-    this.addCommand({
-      id: "open-manual-ai",
-      name: "Manual AI 模板（选择收藏）",
-      callback: () => {
-        void this.openManualAIPicker();
-      },
-    });
-    this.addCommand({
-      id: "open-manual-ai-batch",
-      name: "Manual AI 批量（打包 N 条收藏）",
-      callback: () => {
-        void this.openManualAIBatchPicker();
       },
     });
     this.addCommand({
@@ -148,7 +102,7 @@ export default class OmniCollectorPlugin extends Plugin {
         try {
           const res = await this.engine.runAutoGroup();
           const candidates = (res.payload?.candidates ?? []) as Array<{ name: string; size: number; reason: string }>;
-          new Notice(`分组识别完成：发现 ${candidates.length} 个候选（请到 AI 建议审核确认）`);
+          new Notice(`分组识别完成：发现 ${candidates.length} 个候选（请到 Tag/Topic 管理确认）`);
         } catch (err) {
           new Notice(`分组识别失败：${(err as Error).message}`);
         }
@@ -175,13 +129,6 @@ export default class OmniCollectorPlugin extends Plugin {
         void this.openCollectionList();
       },
     });
-    this.addCommand({
-      id: "scan-local-files",
-      name: "扫描本地文件并关联收藏",
-      callback: () => {
-        void this.scanLocalFiles();
-      },
-    });
     this.addRibbonIcon("sparkles", "Omni Collector", () => {
       void this.activateView();
       this.engine
@@ -205,7 +152,6 @@ export default class OmniCollectorPlugin extends Plugin {
   }
 
   onunload(): void {
-    this.autoScanTimer = null;
     if (this.syncTimer !== null) {
       window.clearInterval(this.syncTimer);
       this.syncTimer = null;
@@ -213,7 +159,6 @@ export default class OmniCollectorPlugin extends Plugin {
     this.engine?.dispose();
   }
 
-  private autoScanTimer: number | null = null;
   private syncTimer: number | null = null;
 
   async saveSettings(): Promise<void> {
@@ -227,43 +172,6 @@ export default class OmniCollectorPlugin extends Plugin {
     } catch (err) {
       new Notice(`规则更新失败：${(err as Error).message}`);
     }
-  }
-
-  /** 自动扫描定时器（设置变更后重载）。 */
-  reloadAutoScan(): void {
-    if (this.autoScanTimer !== null) {
-      window.clearInterval(this.autoScanTimer);
-      this.autoScanTimer = null;
-    }
-    if (this.pluginSettings.localAutoScan && this.pluginSettings.localFolders.length > 0) {
-      this.autoScanTimer = window.setInterval(() => {
-        void this.scanAllLocalFolders(true);
-      }, Math.max(1, this.pluginSettings.localAutoScanMinutes) * 60_000);
-    }
-  }
-
-  /** 扫描全部已配置目录。 */
-  async scanAllLocalFolders(silent = false): Promise<void> {
-    if (this.pluginSettings.localFolders.length === 0) {
-      if (!silent) new Notice("尚未加入本地目录（请到设置添加）");
-      return;
-    }
-    if (!silent) new Notice("正在扫描本地目录…");
-    let scanned = 0;
-    let indexed = 0;
-    let failed = 0;
-    for (const folder of this.pluginSettings.localFolders) {
-      try {
-        const res = await this.engine.scanFolder(folder);
-        const report = (res.payload?.report ?? {}) as { scanned?: number; indexed?: number; errors?: string[] };
-        scanned += report.scanned ?? 0;
-        indexed += report.indexed ?? 0;
-        failed += (report.errors ?? []).length;
-      } catch {
-        failed += 1;
-      }
-    }
-    if (!silent) new Notice(`扫描完成：${scanned} 个文件，索引 ${indexed} 个${failed > 0 ? `，${failed} 个失败` : ""}`);
   }
 
   /** 封面本地缓存：首次下载到 vault/.covers，之后走本地路径。 */
@@ -303,10 +211,7 @@ export default class OmniCollectorPlugin extends Plugin {
     return {
       openCollectionList: (platform?: string) => this.openCollectionList(platform),
       openCollectionDetail: (id: string) => this.openCollectionDetail(id),
-      openAiReview: () => this.openAiReviewView(),
       openTagTopic: () => this.openTagTopicView(),
-      openManualAI: () => this.openManualAIPicker(),
-      openManualAIBatch: () => this.openManualAIBatchPicker(),
       openSettings: () => this.openSettingsTab(),
       startEngine: async () => {
         await this.engine.startEngine("query");
@@ -332,9 +237,8 @@ export default class OmniCollectorPlugin extends Plugin {
       runGroupRecognition: async () => {
         const res = await this.engine.runAutoGroup();
         const candidates = (res.payload?.candidates ?? []) as Array<{ name: string; size: number; reason: string }>;
-        new Notice(`分组识别完成：发现 ${candidates.length} 个候选（请到 AI 建议审核确认）`);
+        new Notice(`分组识别完成：发现 ${candidates.length} 个候选（请到 Tag/Topic 管理确认）`);
       },
-      scanLocalFiles: () => this.scanLocalFiles(),
     };
   }
 
@@ -368,7 +272,7 @@ export default class OmniCollectorPlugin extends Plugin {
         const frequency = this.pluginSettings.syncFrequency[s.platform] ?? "daily";
         const lastAuto = this.pluginSettings.lastAutoSyncAt[s.platform] ?? null;
         if (dailyCapReached(s.todaySyncCount, this.pluginSettings.dailySyncCapPerPlatform)) continue;
-        if (!isSyncDue({ frequency, lastRunAt: lastAuto, randomWindowMinutes: this.pluginSettings.syncRandomWindowMinutes })) {
+        if (!isSyncDue({ frequency, lastRunAt: lastAuto, randomWindowMinutes: this.pluginSettings.syncRandomWindowMinutes, timeOfDay: this.pluginSettings.autoSyncTime })) {
           continue;
         }
         this.pluginSettings.lastAutoSyncAt = {
@@ -423,7 +327,7 @@ export default class OmniCollectorPlugin extends Plugin {
 
   /** 同步全部平台，完成后生成 Markdown 并提示。 */
   async syncAllAndRender(): Promise<void> {
-    const platforms = ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"];
+    const platforms = ["bilibili", "youtube", "zhihu", "x"];
     new Notice("Omni Collector: 开始同步全部平台…");
     let ok = 0;
     let fetched = 0;
@@ -559,16 +463,6 @@ export default class OmniCollectorPlugin extends Plugin {
   if (leaf) workspace.setActiveLeaf(leaf);
   }
 
-  private async openAiReviewView(): Promise<void> {
-    const { workspace } = this.app;
-    let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(VIEW_TYPE_OMNI_AI)[0] ?? null;
-    if (!leaf) {
-      leaf = workspace.getRightLeaf(false);
-      if (leaf) await leaf.setViewState({ type: VIEW_TYPE_OMNI_AI, active: true });
-    }
-  if (leaf) workspace.setActiveLeaf(leaf);
-  }
-
   private async openTagTopicView(): Promise<void> {
     const { workspace } = this.app;
     let leaf: WorkspaceLeaf | null = workspace.getLeavesOfType(VIEW_TYPE_OMNI_TAGS)[0] ?? null;
@@ -579,148 +473,9 @@ export default class OmniCollectorPlugin extends Plugin {
   if (leaf) workspace.setActiveLeaf(leaf);
   }
 
-  /** Manual AI 全局入口：先选收藏，再打开模板（PRD 19.3）。 */
-  private async openManualAIPicker(): Promise<void> {
-    const collections = await this.engine.listCollections().catch(() => []);
-    const modal = new Modal(this.app);
-    modal.titleEl.setText("选择收藏（Manual AI 模板）");
-    const search = modal.contentEl.createEl("input", {
-      type: "text",
-      placeholder: "搜索标题…",
-      attr: { style: "width:100%;margin-bottom:8px;" },
-    });
-    const list = modal.contentEl.createEl("div", {
-      cls: "omni-list",
-      attr: { style: "max-height:60vh;overflow:auto;" },
-    });
-    const render = (keyword = ""): void => {
-      list.empty();
-      const filtered = collections
-        .filter((c) => (c.title || "").toLowerCase().includes(keyword.toLowerCase()))
-        .slice(0, 100);
-      for (const c of filtered) {
-        const row = list.createEl("div", { cls: "omni-row" });
-        row.createEl("span", { text: c.title || c.id, cls: "omni-title" });
-        row.addEventListener("click", () => {
-          modal.close();
-          openManualAIModal(this.app, c, {
-            submit: (id, reply) => this.engine.submitManualAI(id, reply).then(() => undefined),
-          });
-        });
-      }
-      if (filtered.length === 0) {
-        list.createEl("div", { text: "无匹配收藏", cls: "omni-empty" });
-      }
-    };
-    search.addEventListener("input", () => render(search.value));
-    render();
-    modal.open();
-  }
-
-  /** Manual AI 批量入口：按平台/时间段打包 N 条收藏，一次交给网页 AI。 */
-  private async openManualAIBatchPicker(): Promise<void> {
-    const collections = await this.engine.listCollections().catch(() => []);
-    const modal = new Modal(this.app);
-    modal.titleEl.setText("Manual AI 批量打包");
-    const filters = modal.contentEl.createEl("div", { cls: "omni-batch-filter" });
-    const platformSel = filters.createEl("select");
-    platformSel.createEl("option", { text: "全部平台", attr: { value: "" } });
-    for (const p of ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"]) {
-      platformSel.createEl("option", { text: p, attr: { value: p } });
-    }
-    const daysSel = filters.createEl("select");
-    for (const [label, days] of [
-      ["最近 7 天", 7],
-      ["最近 30 天", 30],
-      ["最近 90 天", 90],
-      ["全部时间", 0],
-    ]) {
-      daysSel.createEl("option", { text: String(label), attr: { value: String(days) } });
-    }
-    daysSel.value = "30";
-    const maxInput = filters.createEl("input", {
-      type: "number",
-      attr: { value: "50", min: "1", max: "100", style: "width:70px;" },
-    });
-    const preview = modal.contentEl.createEl("div", { cls: "omni-total" });
-    const runBtn = modal.contentEl.createEl("button", {
-      text: "生成批量模板",
-      cls: "omni-btn omni-btn-primary",
-    });
-
-    const pick = (): CollectionDTO[] => {
-      const platform = platformSel.value;
-      const days = Number(daysSel.value);
-      const max = Math.max(1, Math.min(100, Number(maxInput.value) || 50));
-      const cutoff = days > 0 ? Date.now() - days * 24 * 3600 * 1000 : 0;
-      const filtered = collections
-        .filter((c) => (!platform || c.platform === platform) && (cutoff === 0 || new Date(c.collectedAt).getTime() >= cutoff))
-        .sort((a, b) => {
-          const rank = (x: CollectionDTO): number =>
-            x.organizeStatus === "unorganized" ? 0 : x.organizeStatus === "viewed" ? 1 : 2;
-          return rank(a) - rank(b) || new Date(b.collectedAt).getTime() - new Date(a.collectedAt).getTime();
-        })
-        .slice(0, max);
-      preview.setText(`当前选中 ${filtered.length} 条（优先未整理）`);
-      return filtered;
-    };
-    const refresh = (): void => void pick();
-    platformSel.addEventListener("change", refresh);
-    daysSel.addEventListener("change", refresh);
-    maxInput.addEventListener("input", refresh);
-    runBtn.addEventListener("click", () => {
-      const items = pick();
-      if (items.length === 0) {
-        new Notice("没有符合条件的收藏");
-        return;
-      }
-      modal.close();
-      openManualAIBatchModal(this.app, items, {
-        submit: (ids, reply) =>
-          this.engine
-            .submitManualAIBatch(ids, reply)
-            .then((res) => Number(res.payload?.saved ?? 0)),
-      });
-    });
-    refresh();
-    modal.open();
-  }
-
   private async openSettingsTab(): Promise<void> {
     const app = this.app as unknown as { setting: { open(): void; openTabById(id: string): void } };
     app.setting.open();
     app.setting.openTabById("omni-collector");
-  }
-
-  /** 扫描库内文件夹（默认 Omni Collector），把 Markdown/PDF 关联到收藏。 */
-  async scanLocalFiles(): Promise<void> {
-    const vaultPath = (this.app.vault.adapter as unknown as { getBasePath(): string }).getBasePath();
-    const defaultFolder = `${vaultPath}/Omni Collector`;
-    const modal = new Modal(this.app);
-    modal.titleEl.setText("扫描本地文件");
-    let folder = defaultFolder;
-    new Setting(modal.contentEl)
-      .setName("文件夹路径")
-      .setDesc("扫描该目录下的 .md / .pdf，并按 Markdown 系统区 URL 关联收藏。")
-      .addText((text) =>
-        text.setValue(defaultFolder).onChange((v) => {
-          folder = v;
-        }),
-      );
-    modal.contentEl.createEl("button", { text: "开始扫描", cls: "omni-btn omni-btn-primary" }).addEventListener("click", () => {
-      modal.close();
-      void (async () => {
-        new Notice("正在扫描本地文件…");
-        try {
-          const res = await this.engine.scanFolder(folder);
-          const report = (res.payload?.report ?? {}) as { scanned?: number; indexed?: number; errors?: string[] };
-          const errors = report.errors ?? [];
-          new Notice(`扫描完成：共 ${report.scanned ?? 0} 个文件，索引 ${report.indexed ?? 0} 个${errors.length > 0 ? `，${errors.length} 个失败` : ""}`);
-        } catch (err) {
-          new Notice(`扫描失败：${(err as Error).message}`);
-        }
-      })();
-    });
-    modal.open();
   }
 }

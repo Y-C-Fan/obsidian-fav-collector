@@ -67,8 +67,8 @@ describe("ContentGroupRepository", () => {
 
   it("unbinds a collection", () => {
     const g = groups.createGroup("组C", "knowledge");
-    const c = collections.upsertByPlatformItem("zhihu", "zh-cg", {
-      url: "https://www.zhihu.com/question/1/answer/1",
+    const c = collections.upsertByPlatformItem("bilibili", "bv-cg", {
+      url: "https://www.bilibili.com/video/BV1cg",
     });
     groups.bindCollection(g.id, c.id);
     groups.unbindCollection(c.id);

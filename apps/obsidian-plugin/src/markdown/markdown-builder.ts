@@ -23,13 +23,24 @@ export function sanitizeFilename(name: string): string {
  * 系统区由 Plugin 依据 Engine DTO 生成；用户区任何自动化逻辑禁止修改（ADR-011/ADR-006）。
  */
 export class MarkdownBuilder {
-  buildFromDTO(dto: CollectionDTO): string {
-    const system = [
+  /** 系统区内容（Engine 管理，可覆盖重建）：元信息 + 展开标记 + 全文。 */
+  private buildSystemZone(dto: CollectionDTO): string {
+    const expanded = dto.syncStatus === "full" || !!dto.expandedAt;
+    const full = (dto.transcript || dto.description || "").slice(0, 12000);
+    const lines = [
       `title: ${yamlString(dto.title)}`,
       `platform: ${yamlString(dto.platform)}`,
       `url: ${yamlString(dto.url)}`,
       `sync_status: ${yamlString(dto.syncStatus)}`,
-    ].join('\n');
+      `expanded: ${expanded ? "true" : "false"}`,
+      `expanded_at: ${yamlString(dto.expandedAt ?? "")}`,
+    ];
+    if (full) lines.push("```全文", full, "```");
+    return lines.join("\n");
+  }
+
+  buildFromDTO(dto: CollectionDTO): string {
+    const system = this.buildSystemZone(dto);
     const comments = (dto.comments ?? []).map((c) => `- **${c.author}**：${c.content}`).join('\n');
     const frontmatter = this.buildFrontmatter(dto);
     const graphLinks = this.buildGraphLinks(dto);
@@ -88,12 +99,7 @@ export class MarkdownBuilder {
     if (!this.validateMarkers(md)) {
       throw new Error("PLUGIN_002: system zone markers missing or misordered");
     }
-    const system = [
-      `title: ${yamlString(dto.title)}`,
-      `platform: ${yamlString(dto.platform)}`,
-      `url: ${yamlString(dto.url)}`,
-      `sync_status: ${yamlString(dto.syncStatus)}`,
-    ].join("\n");
+    const system = this.buildSystemZone(dto);
     let out = md.replace(
       new RegExp(`${SYSTEM_START}[\\s\\S]*?${SYSTEM_END}`),
       `${SYSTEM_START}\n${system}\n${SYSTEM_END}`,

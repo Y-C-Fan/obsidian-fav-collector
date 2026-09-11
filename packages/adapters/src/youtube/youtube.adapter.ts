@@ -20,7 +20,7 @@ export function extractYoutubeId(url: string): string | null {
 export interface YouTubeAdapterOptions {
   /** yt-dlp 启动命令，例如 ["python.exe", "-m", "yt_dlp"]。 */
   ytDlpCommand?: string[];
-  /** 收藏/喜欢列表 URL，默认 Liked Videos（LL）。 */
+  /** 同步列表 URL，默认 Watch Later（WL，私有稍后再看）。 */
   listUrl?: string;
   /** Netscape cookie 文件路径（--cookies）。 */
   cookiesFile?: string;
@@ -29,9 +29,9 @@ export interface YouTubeAdapterOptions {
 }
 
 /**
- * YouTubeAdapter（TDD Part 6.5）：
- * 目录/详情经 yt-dlp（--flat-playlist / -J）获取；字幕提取默认关闭（business_rules）。
- * 未安装 yt-dlp 或未登录时抛出明确错误，live 验收待账号配置。
+ * YouTubeAdapter：
+ * 只同步 Watch Later（list=WL，需本人 cookies）；目录/详情经 yt-dlp
+ * （--flat-playlist / -J）获取；字幕提取默认关闭（business_rules）。
  */
 export class YouTubeAdapter extends BaseAdapter {
   readonly platform = "youtube";
@@ -45,7 +45,7 @@ export class YouTubeAdapter extends BaseAdapter {
 
   constructor(private readonly opts: YouTubeAdapterOptions = {}) {
     super();
-    this.listUrl = opts.listUrl ?? "https://www.youtube.com/playlist?list=LL";
+    this.listUrl = opts.listUrl ?? "https://www.youtube.com/playlist?list=WL";
   }
 
   private cookiesArgs(): string[] {
@@ -110,7 +110,7 @@ export class YouTubeAdapter extends BaseAdapter {
       title: e.title ?? e.id,
       author: e.channel,
       collectedAt: new Date().toISOString(),
-      saveType: "favorited",
+      saveType: "watch_later",
       extra: { contentType: "video" },
     }));
   }

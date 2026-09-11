@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   extractYoutubeId,
-  extractXiaohongshuId,
   extractZhihuId,
   parseZhihuFavContents,
   extractXId,
   extractUgcSeason,
   YouTubeAdapter,
-  XiaohongshuAdapter,
   ZhihuAdapter,
   XAdapter,
 } from "../src/index.js";
@@ -18,14 +16,6 @@ describe("platform id extraction", () => {
     expect(extractYoutubeId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
     expect(extractYoutubeId("https://www.youtube.com/shorts/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
     expect(extractYoutubeId("https://example.com/none")).toBeNull();
-  });
-
-  it("xiaohongshu", () => {
-    expect(extractXiaohongshuId("https://www.xiaohongshu.com/explore/64a1b2c3000000001302abcd")).toBe(
-      "64a1b2c3000000001302abcd",
-    );
-    expect(extractXiaohongshuId("https://www.xiaohongshu.com/discovery/item/123456")).toBe("123456");
-    expect(extractXiaohongshuId("https://example.com")).toBeNull();
   });
 
   it("zhihu", () => {
@@ -79,12 +69,6 @@ describe("adapter normalize mapping", () => {
     expect(yt.platform).toBe("youtube");
     expect(yt.contentType).toBe("video");
 
-    const xhs = new XiaohongshuAdapter().normalize(
-      { platformItemId: "note1", url: "https://www.xiaohongshu.com/explore/note1", title: "N", saveType: "favorited" },
-    );
-    expect(xhs.platform).toBe("xiaohongshu");
-    expect(xhs.contentType).toBe("note");
-
     const zh = new ZhihuAdapter().normalize(
       {
         platformItemId: "answer-2",
@@ -98,11 +82,11 @@ describe("adapter normalize mapping", () => {
     expect(zh.contentType).toBe("answer");
 
     const x = new XAdapter().normalize(
-      { platformItemId: "123", url: "https://x.com/u/status/123", title: "X", saveType: "liked" },
+      { platformItemId: "123", url: "https://x.com/u/status/123", title: "X", saveType: "favorited" },
     );
     expect(x.platform).toBe("x");
     expect(x.contentType).toBe("tweet");
-    expect(x.saveType).toBe("liked");
+    expect(x.saveType).toBe("favorited");
   });
 });
 

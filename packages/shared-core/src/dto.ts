@@ -9,6 +9,10 @@ export interface CollectionDTO {
   author?: string;
   coverUrl?: string;
   description?: string;
+  /** 展开后的全文/逐字稿（expand 写入，仅系统区使用）。 */
+  transcript?: string;
+  /** 展开时间（detail_synced=1 时为 lastSyncedAt，否则无）。 */
+  expandedAt?: string;
   contentType: string;
   saveType: "favorited" | "watch_later" | "liked";
   contentStatus: "active" | "deleted" | "unavailable" | "file_missing";

@@ -11,7 +11,6 @@ chromium.use(stealth());
 const DEFAULT_DOMAINS: Record<string, string> = {
   bilibili: ".bilibili.com",
   youtube: ".youtube.com",
-  xiaohongshu: ".xiaohongshu.com",
   zhihu: ".zhihu.com",
   x: ".x.com",
 };
@@ -76,9 +75,9 @@ export class BrowserSessionManager {
   }
 
   /**
-   * 创建持久化浏览器 Profile（指纹绑定类平台，如小红书）：
+   * 创建持久化浏览器 Profile（指纹绑定类平台专用）：
    * 登录态与浏览器指纹绑定，只有复用同一 user-data-dir 才能保持会话。
-   * 首次登录后，后续 headless/headful 复用同一 Profile 即可维持登录。
+   * 当前四平台均走普通会话，本方法保留备用。
    */
   async createPersistent(platform: string): Promise<BrowserContext> {
     const profileDir = this.profileDir(platform);

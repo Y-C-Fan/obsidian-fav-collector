@@ -23,10 +23,10 @@ export interface XTweetItem {
 }
 
 /**
- * XAdapter（five-platform 版新增）：
- * 以浏览器驱动为主路径（Bookmarks 私有列表 + Likes 公开列表均需登录态），
+ * XAdapter：
+ * 只同步 Bookmarks 私有收藏（saveType=favorited），以浏览器驱动为主路径，
  * Cookie 由 Engine 注入，本 Adapter 不接触明文凭据。
- * 采集上限：每个列表最多滚动 60 轮，避免风控。
+ * 采集上限：最多滚动 60 轮，避免风控。
  */
 export class XAdapter extends BaseAdapter {
   readonly platform = "x";
@@ -70,7 +70,7 @@ export class XAdapter extends BaseAdapter {
   async fetchCatalog(ctx: BrowserContext, _cursor: SyncCursor): Promise<CollectionRaw[]> {
     const out: CollectionRaw[] = [];
     const seen = new Set<string>();
-    // 1) Bookmarks（私有收藏，saveType=favorited）
+    // 只同步 Bookmarks（私有收藏，saveType=favorited）
     const bookmarks = await this.scrollTimeline(ctx, "https://x.com/i/bookmarks").catch((err) => {
       if ((err as Error).message.startsWith("AUTH_")) throw err;
       this.failures += 1;
@@ -89,50 +89,10 @@ export class XAdapter extends BaseAdapter {
         extra: { contentType: "tweet", handle: t.handle, createdAt: t.createdAt, note: t.text.slice(0, 400) },
       });
     }
-    // 2) Likes（公开点赞，saveType=liked；handle 从页面状态解析）
-    const handle = await this.resolveHandle(ctx);
-    if (handle) {
-      const likes = await this.scrollTimeline(ctx, `https://x.com/${handle}/likes`).catch(() => [] as XTweetItem[]);
-      for (const t of likes) {
-        if (seen.has(t.tweetId)) continue;
-        seen.add(t.tweetId);
-        out.push({
-          platformItemId: t.tweetId,
-          url: t.url,
-          title: t.text.split("\n")[0].slice(0, 120) || "(无正文)",
-          author: t.author ?? t.handle,
-          collectedAt: new Date().toISOString(),
-          saveType: "liked",
-          extra: { contentType: "tweet", handle: t.handle, createdAt: t.createdAt, note: t.text.slice(0, 400) },
-        });
-      }
-    }
     return out;
   }
 
-  /** 解析当前登录用户的 handle（用于定位 Likes 页）。 */
-  private async resolveHandle(ctx: BrowserContext): Promise<string | null> {
-    const page = await ctx.newPage();
-    try {
-      await page.goto("https://x.com/home", { waitUntil: "domcontentloaded", timeout: 60000 });
-      await page.waitForTimeout(4000);
-      return await page.evaluate(() => {
-        const st = (window as unknown as { __INITIAL_STATE__?: unknown }).__INITIAL_STATE__;
-        void st;
-        // 优先从个人资料链接解析
-        const profile = Array.from(document.querySelectorAll("a[href^='/'][data-testid='AppTabBar_Profile_Link']"))
-          .map((a) => (a as HTMLAnchorElement).getAttribute("href") ?? "")
-          .find((h) => /^\/[A-Za-z0-9_]{1,15}$/.test(h));
-        return profile ? profile.slice(1) : null;
-      });
-    } catch {
-      return null;
-    } finally {
-      await page.close().catch(() => {});
-    }
-  }
-
-  /** 滚动时间线并解析推文卡片（Bookmarks / Likes 通用）。 */
+  /** 滚动时间线并解析推文卡片（Bookmarks 通用）。 */
   private async scrollTimeline(ctx: BrowserContext, url: string): Promise<XTweetItem[]> {
     const page = await ctx.newPage();
     try {

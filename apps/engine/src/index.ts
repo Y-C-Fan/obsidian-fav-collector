@@ -20,8 +20,10 @@ export type { SyncMode, SyncReport, SyncPipelineDeps } from "./sync/sync-pipelin
 export { BrowserSessionManager } from "./sync/browser-session.js";
 export { parseStoredCookies } from "./sync/browser-session.js";
 export type { BrowserSessionOptions, StoredCookie } from "./sync/browser-session.js";
-export { SyncRunner, SUPPORTED_PLATFORMS } from "./sync/sync-runner.js";
+export { SyncRunner, SUPPORTED_PLATFORMS, buildAdapter } from "./sync/sync-runner.js";
 export type { SyncRunnerOptions } from "./sync/sync-runner.js";
+export { expandCollection } from "./sync/expand.js";
+export type { ExpandOptions, ExpandResult } from "./sync/expand.js";
 export { selectRecentCommentCollections } from "./sync/sync-runner.js";
 export { AiQueueRunner } from "./ai/ai-queue-runner.js";
 export type { AiQueueRunnerOptions } from "./ai/ai-queue-runner.js";
@@ -53,17 +55,34 @@ async function main(): Promise<void> {
   if (!dataDir) {
     throw new Error("missing required argument: --data-dir <path>");
   }
+  const migrationsDir = resolveMigrationsDir();
+
+  // 一次性命令：展开单条收藏详情（Skill `expand`，给 Coding Agent 调用，无需启动常驻服务）。
+  // 用法：node dist/index.js --data-dir <dir> expand "<收藏URL | platform:platformItemId>" [--max-chars N]
+  if (argv.includes("expand")) {
+    const { expandCollection } = await import("./sync/expand.js");
+    const rest = argv.slice(argv.indexOf("expand") + 1);
+    const target = arg(rest, "--target") ?? rest.find((a) => !a.startsWith("--"));
+    if (!target) throw new Error("expand: missing target <url | platform:platformItemId>");
+    const maxRaw = arg(rest, "--max-chars");
+    const maxChars = maxRaw ? Number(maxRaw) : undefined;
+    try {
+      const result = await expandCollection({ dataDir, migrationsDir, target, headless: true, maxChars });
+      console.log(JSON.stringify(result, null, 2));
+      process.exit(0);
+    } catch (err) {
+      console.log(JSON.stringify({ error: (err as Error).message }));
+      process.exit(1);
+    }
+  }
+
   const db = openDatabase(dataDir);
   db.close();
 
   const service = new TaskService({
     dataDir,
     // 部署后 migrations 位于引擎脚本同目录；仓库开发态回退到 packages/database/migrations
-    migrationsDir: (() => {
-      const scriptDir = path.dirname(path.resolve(process.argv[1] ?? ""));
-      const bundled = path.join(scriptDir, "migrations");
-      return fs.existsSync(bundled) ? bundled : path.join(process.cwd(), "packages/database/migrations");
-    })(),
+    migrationsDir,
     headless: true,
     getProvider: (rules) => {
       const type = rules.get("ai_provider");
@@ -87,6 +106,12 @@ async function main(): Promise<void> {
   });
   await server.close("engine shutdown");
   process.exit(0);
+}
+
+function resolveMigrationsDir(): string {
+  const scriptDir = path.dirname(path.resolve(process.argv[1] ?? ""));
+  const bundled = path.join(scriptDir, "migrations");
+  return fs.existsSync(bundled) ? bundled : path.join(process.cwd(), "packages/database/migrations");
 }
 
 if (process.argv[1] && /(index\.js|engine\.cjs)$/.test(process.argv[1])) {

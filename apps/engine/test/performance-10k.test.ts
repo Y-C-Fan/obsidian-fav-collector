@@ -36,7 +36,7 @@ describe("Phase 6 performance: 10k rows < 500ms (Dataview-style queries)", () =>
       for (let i = 0; i < 10_000; i += 1) {
         insert.run(
           `perf-${i}`,
-          ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"][i % 5],
+          ["bilibili", "youtube", "zhihu", "x"][i % 4],
           `item-${i}`,
           `https://example.com/${i}`,
           `收藏标题 ${i}`,

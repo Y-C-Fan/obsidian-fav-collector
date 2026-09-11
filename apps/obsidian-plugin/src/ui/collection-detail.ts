@@ -1,6 +1,5 @@
 import { ItemView, Modal, Notice, WorkspaceLeaf } from "obsidian";
 import type { CollectionDTO } from "@omni/shared-core";
-import { openManualAIModal } from "./manual-ai.js";
 
 export const VIEW_TYPE_OMNI_DETAIL = "omni-collector-detail";
 
@@ -11,15 +10,12 @@ export interface DetailDataSource {
   onPriority(collectionId: string, priority: CollectionDTO["priority"]): Promise<void>;
   onTag(collectionId: string, tag: string): Promise<void>;
   onTopic(collectionId: string, topic: string): Promise<void>;
-  openLocalFile(filePath: string): void;
   ensureCover(url: string): Promise<string | null>;
-  submitManualAI(collectionId: string, reply: string): Promise<void>;
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
   bilibili: "B站",
   youtube: "YouTube",
-  xiaohongshu: "小红书",
   zhihu: "知乎",
   x: "X",
 };
@@ -168,10 +164,6 @@ export class OmniCollectionDetailView extends ItemView {
     tagBtn.addEventListener("click", () => this.promptText("打 Tag", "输入标签名", (v) => this.source.onTag(item.id, v)));
     const topicBtn = chips.createEl("button", { text: "＋Topic", cls: "omni-chip" });
     topicBtn.addEventListener("click", () => this.promptText("归入 Topic", "输入 Topic 名", (v) => this.source.onTopic(item.id, v)));
-    const manualBtn = chips.createEl("button", { text: "Manual AI", cls: "omni-chip" });
-    manualBtn.addEventListener("click", () =>
-      openManualAIModal(this.app, item, { submit: (id, reply) => this.source.submitManualAI(id, reply) }),
-    );
 
     // 已同步评论
     if ((item.comments ?? []).length > 0) {
@@ -182,21 +174,6 @@ export class OmniCollectionDetailView extends ItemView {
         row.createEl("span", { text: c.author, cls: "omni-comment-author" });
         row.createEl("span", { text: c.content, cls: "omni-comment-content" });
       }
-    }
-
-    // 本地关联文件
-    if ((item.linkedFiles ?? []).length > 0) {
-      container.createEl("div", { text: "本地文件", cls: "omni-section-title" });
-      const files = container.createEl("div", { cls: "omni-detail-files" });
-      for (const f of item.linkedFiles ?? []) {
-        const name = f.split(/[\\/]/).pop() ?? f;
-        files.createEl("div", { text: `📄 ${name}`, cls: "omni-file-row", attr: { title: f } });
-      }
-      const openBtn = container.createEl("button", { text: "打开笔记", cls: "omni-btn omni-btn-sm" });
-      openBtn.addEventListener("click", () => {
-        const first = (item.linkedFiles ?? [])[0];
-        if (first) this.source.openLocalFile(first);
-      });
     }
 
     // Related Collections（同分组或同实体跨平台）
