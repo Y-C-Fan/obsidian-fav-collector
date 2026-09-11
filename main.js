@@ -3713,7 +3713,7 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_node_path = __toESM(require("node:path"), 1);
-var import_obsidian10 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var import_node_crypto2 = require("node:crypto");
 
 // src/settings.ts
@@ -3721,36 +3721,25 @@ var DEFAULT_SETTINGS = {
   dataDir: "",
   engineScript: "",
   wsToken: "",
-  makerworldSyncLikes: false,
+  zhihuSecret: "",
   nodeBin: "",
-  aiEnabled: false,
-  aiProvider: "deepseek",
-  aiApiKey: "",
-  aiModel: "",
   initialSyncMode: "catalog",
   autoStartEngine: true,
   viewMode: "list",
-  localFolders: [],
-  localAutoScan: false,
-  localAutoScanMinutes: 30,
   syncFrequency: {
     bilibili: "daily",
     youtube: "daily",
-    xiaohongshu: "daily",
-    makerworld: "daily",
-    xiaoheihe: "daily"
+    zhihu: "daily",
+    x: "daily"
   },
+  autoSyncTime: "09:00",
   initFullDetailLimit: 50,
   syncRandomWindowMinutes: 120,
   dailySyncCapPerPlatform: 3,
-  aiTagEnabled: true,
-  aiTopicEnabled: true,
-  aiSummaryEnabled: true,
-  aiDailyCallLimit: 50,
   deepSyncDepth: 50,
   commentBatchUpdateDays: 7,
   lastAutoSyncAt: {},
-  autoSyncEnabled: false
+  autoSyncEnabled: true
 };
 async function loadSettings(plugin) {
   return Object.assign({}, DEFAULT_SETTINGS, await plugin.loadData() ?? {});
@@ -3760,36 +3749,8 @@ async function saveSettings(plugin, settings) {
 }
 
 // src/settings-tab.ts
-var import_obsidian2 = require("obsidian");
-
-// src/ui/folder-suggest.ts
 var import_obsidian = require("obsidian");
-var FolderSuggest = class extends import_obsidian.AbstractInputSuggest {
-  constructor(app, inputEl) {
-    super(app, inputEl);
-    __publicField(this, "inputEl", inputEl);
-    __publicField(this, "input");
-    this.input = inputEl;
-  }
-  getSuggestions(query) {
-    const folders = this.app.vault.getAllLoadedFiles().filter((f) => Array.isArray(f.children)).map((f) => f.path ?? "");
-    const q = query.trim().toLowerCase();
-    const matched = q ? folders.filter((p) => p.toLowerCase().includes(q)) : folders;
-    return matched.slice(0, 30);
-  }
-  renderSuggestion(value, el) {
-    el.setText(value);
-  }
-  selectSuggestion(value) {
-    const input = this.input;
-    input.value = value;
-    input.trigger("input");
-    this.close();
-  }
-};
-
-// src/settings-tab.ts
-var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
+var OmniSettingTab = class extends import_obsidian.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     __publicField(this, "plugin", plugin);
@@ -3797,76 +3758,25 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    new import_obsidian2.Setting(containerEl).setName("AI").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u542F\u7528 AI \u6574\u7406\u5EFA\u8BAE").setDesc("\u5F00\u542F\u540E\u540C\u6B65\u5B8C\u6210\u7684\u6536\u85CF\u4F1A\u8FDB\u5165 AI \u961F\u5217\uFF08\u6279\u5904\u7406\uFF0C\u5355\u6279 \u2264100 \u6761\uFF09\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.aiEnabled).onChange(async (value) => {
-        this.plugin.pluginSettings.aiEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_enabled", String(value));
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI Provider").setDesc("deepseek \u6216 openai\uFF08OpenAI \u517C\u5BB9\u63A5\u53E3\uFF09\u3002").addDropdown(
-      (dd) => dd.addOption("deepseek", "DeepSeek").addOption("openai", "OpenAI").setValue(this.plugin.pluginSettings.aiProvider).onChange(async (value) => {
-        this.plugin.pluginSettings.aiProvider = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_provider", value);
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI API Key").setDesc("\u53EA\u4FDD\u5B58\u5728\u672C\u5730\u6570\u636E\u76EE\u5F55\u7684\u89C4\u5219\u8868\u4E2D\uFF0C\u4E0D\u4F1A\u4E0A\u4F20\u3002").addText(
-      (text) => text.setPlaceholder("sk-...").setValue(this.plugin.pluginSettings.aiApiKey).onChange(async (value) => {
-        this.plugin.pluginSettings.aiApiKey = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_api_key", value);
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI \u6A21\u578B").setDesc("\u7559\u7A7A\u4F7F\u7528 Provider \u9ED8\u8BA4\u6A21\u578B\uFF08DeepSeek: deepseek-chat / OpenAI: gpt-4o-mini\uFF09\u3002").addText(
-      (text) => text.setPlaceholder("deepseek-chat").setValue(this.plugin.pluginSettings.aiModel).onChange(async (value) => {
-        this.plugin.pluginSettings.aiModel = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_model", value);
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI \u529F\u80FD\u5F00\u5173").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("AI Tag \u5EFA\u8BAE").setDesc("\u5173\u95ED\u540E AI \u4E0D\u518D\u751F\u6210 Tag \u5EFA\u8BAE\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.aiTagEnabled).onChange(async (value) => {
-        this.plugin.pluginSettings.aiTagEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_tag_enabled", String(value));
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI Topic \u5EFA\u8BAE").setDesc("\u5173\u95ED\u540E AI \u4E0D\u518D\u751F\u6210 Topic \u5EFA\u8BAE\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.aiTopicEnabled).onChange(async (value) => {
-        this.plugin.pluginSettings.aiTopicEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_topic_enabled", String(value));
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("AI \u6458\u8981\u5EFA\u8BAE").setDesc("\u5173\u95ED\u540E AI \u4E0D\u518D\u751F\u6210\u6458\u8981\u5EFA\u8BAE\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.aiSummaryEnabled).onChange(async (value) => {
-        this.plugin.pluginSettings.aiSummaryEnabled = value;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_summary_enabled", String(value));
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("\u6BCF\u65E5 AI \u8C03\u7528\u4E0A\u9650").setDesc("\u9ED8\u8BA4 50 \u6B21\uFF1B\u8D85\u51FA\u540E\u6392\u961F\u6B21\u65E5\u6267\u884C\uFF08\u5199\u5165 ai_daily_call_limit\uFF09\u3002").addText(
-      (text) => text.setValue(String(this.plugin.pluginSettings.aiDailyCallLimit)).onChange(async (v) => {
-        const n = Math.max(1, Math.floor(Number(v) || 50));
-        this.plugin.pluginSettings.aiDailyCallLimit = n;
-        await this.plugin.saveSettings();
-        await this.plugin.updateRule("ai_daily_call_limit", String(n));
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("\u540C\u6B65").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u540C\u6B65\u6A21\u5F0F").setDesc("catalog = \u8F7B\u91CF\u76EE\u5F55\uFF08\u5FEB\uFF09\uFF1Bfull = \u542B\u8BE6\u60C5/\u8BC4\u8BBA\uFF08\u6162\uFF09\u3002\u300C\u540C\u6B65\u5168\u90E8\u300D\u4F7F\u7528\u6B64\u6A21\u5F0F\u3002").addDropdown(
+    new import_obsidian.Setting(containerEl).setName("\u540C\u6B65").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u540C\u6B65\u6A21\u5F0F").setDesc("catalog = \u8F7B\u91CF\u76EE\u5F55\uFF08\u5FEB\uFF09\uFF1Bfull = \u542B\u8BE6\u60C5/\u8BC4\u8BBA\uFF08\u6162\uFF09\u3002\u300C\u540C\u6B65\u5168\u90E8\u300D\u4F7F\u7528\u6B64\u6A21\u5F0F\u3002").addDropdown(
       (dd) => dd.addOption("catalog", "\u8F7B\u91CF\u76EE\u5F55 (catalog)").addOption("full", "\u5B8C\u6574\u8BE6\u60C5 (full)").setValue(this.plugin.pluginSettings.initialSyncMode).onChange(async (value) => {
         this.plugin.pluginSettings.initialSyncMode = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u540C\u6B65\u8BA1\u5212").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u542F\u7528\u81EA\u52A8\u540C\u6B65").setDesc("\u9ED8\u8BA4\u5173\u95ED\uFF1B\u5F00\u542F\u540E\u6309\u4E0B\u65B9\u9891\u7387/\u968F\u673A\u7A97\u53E3/\u65E5\u4E0A\u9650\u81EA\u52A8\u540C\u6B65\uFF08\u98CE\u63A7\u671F\u5EFA\u8BAE\u4FDD\u6301\u5173\u95ED\uFF09\u3002").addToggle(
+    new import_obsidian.Setting(containerEl).setName("\u540C\u6B65\u8BA1\u5212").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u542F\u7528\u81EA\u52A8\u540C\u6B65").setDesc("\u5F00\u542F\u540E\u6BCF\u5929\u6309\u4E0B\u8FF0\u65F6\u523B\u81EA\u52A8\u540C\u6B65\uFF08\u5404\u5E73\u53F0\u5728\u968F\u673A\u7A97\u53E3\u5185\u9519\u5CF0\u6267\u884C\uFF09\u3002").addToggle(
       (toggle) => toggle.setValue(this.plugin.pluginSettings.autoSyncEnabled).onChange(async (value) => {
         this.plugin.pluginSettings.autoSyncEnabled = value;
+        await this.plugin.saveSettings();
+        this.plugin.reloadSyncScheduler();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("\u6BCF\u65E5\u540C\u6B65\u65F6\u523B").setDesc("24 \u5C0F\u65F6\u5236 HH:MM\uFF08\u9ED8\u8BA4 09:00\uFF09\uFF1B\u5404\u5E73\u53F0\u5728\u6B64\u540E\u968F\u673A\u7A97\u53E3\u5185\u9519\u5CF0\u6267\u884C\u3002").addText(
+      (text) => text.setPlaceholder("09:00").setValue(this.plugin.pluginSettings.autoSyncTime).onChange(async (value) => {
+        const v = /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim()) ? value.trim() : "09:00";
+        this.plugin.pluginSettings.autoSyncTime = v;
         await this.plugin.saveSettings();
         this.plugin.reloadSyncScheduler();
       })
@@ -3874,12 +3784,11 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
     const platforms = [
       ["bilibili", "B\u7AD9"],
       ["youtube", "YouTube"],
-      ["xiaohongshu", "\u5C0F\u7EA2\u4E66"],
-      ["makerworld", "MakerWorld"],
-      ["xiaoheihe", "\u5C0F\u9ED1\u76D2"]
+      ["zhihu", "\u77E5\u4E4E"],
+      ["x", "X"]
     ];
     for (const [key, label] of platforms) {
-      new import_obsidian2.Setting(containerEl).setName(`${label} \u81EA\u52A8\u540C\u6B65\u9891\u7387`).setDesc("daily = \u6BCF\u65E5\u81EA\u52A8\u540C\u6B65\uFF1Bweekly = \u6BCF\u5468\u81EA\u52A8\u540C\u6B65\u3002").addDropdown(
+      new import_obsidian.Setting(containerEl).setName(`${label} \u81EA\u52A8\u540C\u6B65\u9891\u7387`).setDesc("daily = \u6BCF\u65E5\u81EA\u52A8\u540C\u6B65\uFF1Bweekly = \u6BCF\u5468\u81EA\u52A8\u540C\u6B65\u3002").addDropdown(
         (dd) => dd.addOption("daily", "\u6BCF\u65E5").addOption("weekly", "\u6BCF\u5468").setValue(this.plugin.pluginSettings.syncFrequency[key] ?? "daily").onChange(async (value) => {
           this.plugin.pluginSettings.syncFrequency = {
             ...this.plugin.pluginSettings.syncFrequency,
@@ -3890,7 +3799,7 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         })
       );
     }
-    new import_obsidian2.Setting(containerEl).setName("\u521D\u59CB\u5316\u5B8C\u6574\u8BE6\u60C5\u6761\u6570").setDesc("\u9996\u6B21/\u624B\u52A8 full \u540C\u6B65\u6700\u591A\u62C9\u53D6\u8BE6\u60C5\u4E0E\u8BC4\u8BBA\u7684\u6761\u6570\uFF08\u533A\u95F4 20~80\uFF09\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("\u521D\u59CB\u5316\u5B8C\u6574\u8BE6\u60C5\u6761\u6570").setDesc("\u9996\u6B21/\u624B\u52A8 full \u540C\u6B65\u6700\u591A\u62C9\u53D6\u8BE6\u60C5\u4E0E\u8BC4\u8BBA\u7684\u6761\u6570\uFF08\u533A\u95F4 20~80\uFF09\u3002").addText(
       (text) => text.setValue(String(this.plugin.pluginSettings.initFullDetailLimit)).onChange(async (v) => {
         const n = Math.max(20, Math.min(80, Math.floor(Number(v) || 50)));
         this.plugin.pluginSettings.initFullDetailLimit = n;
@@ -3898,7 +3807,7 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateRule("init_full_detail_limit", String(n));
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u968F\u673A\u6267\u884C\u7A97\u53E3\uFF08\u5206\u949F\uFF09").setDesc("\u81EA\u52A8\u540C\u6B65\u5728\u7A97\u53E3\u5185\u968F\u673A\u6267\u884C\uFF0C\u907F\u514D\u56FA\u5B9A\u65F6\u523B\u88AB\u98CE\u63A7\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("\u968F\u673A\u6267\u884C\u7A97\u53E3\uFF08\u5206\u949F\uFF09").setDesc("\u81EA\u52A8\u540C\u6B65\u5728\u7A97\u53E3\u5185\u968F\u673A\u6267\u884C\uFF0C\u907F\u514D\u56FA\u5B9A\u65F6\u523B\u88AB\u98CE\u63A7\u3002").addText(
       (text) => text.setValue(String(this.plugin.pluginSettings.syncRandomWindowMinutes)).onChange(async (v) => {
         const n = Math.max(0, Math.floor(Number(v) || 120));
         this.plugin.pluginSettings.syncRandomWindowMinutes = n;
@@ -3906,7 +3815,7 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateRule("sync_random_window_minutes", String(n));
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u5355\u5E73\u53F0\u6BCF\u65E5\u540C\u6B65\u4E0A\u9650").setDesc("\u5F53\u5929\u8FBE\u5230\u4E0A\u9650\u540E\u4E0D\u518D\u81EA\u52A8\u89E6\u53D1\u8BE5\u5E73\u53F0\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("\u5355\u5E73\u53F0\u6BCF\u65E5\u540C\u6B65\u4E0A\u9650").setDesc("\u5F53\u5929\u8FBE\u5230\u4E0A\u9650\u540E\u4E0D\u518D\u81EA\u52A8\u89E6\u53D1\u8BE5\u5E73\u53F0\u3002").addText(
       (text) => text.setValue(String(this.plugin.pluginSettings.dailySyncCapPerPlatform)).onChange(async (v) => {
         const n = Math.max(1, Math.floor(Number(v) || 3));
         this.plugin.pluginSettings.dailySyncCapPerPlatform = n;
@@ -3914,7 +3823,7 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateRule("daily_sync_cap_per_platform", String(n));
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u6DF1\u5EA6\u5386\u53F2\u540C\u6B65\u56DE\u6EAF\u6DF1\u5EA6\uFF08\u9875\uFF09").setDesc("\u624B\u52A8\u6DF1\u5EA6\u540C\u6B65\u65F6\u5411\u540E\u62C9\u53D6\u7684\u5386\u53F2\u9875\u6570\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("\u6DF1\u5EA6\u5386\u53F2\u540C\u6B65\u56DE\u6EAF\u6DF1\u5EA6\uFF08\u9875\uFF09").setDesc("\u624B\u52A8\u6DF1\u5EA6\u540C\u6B65\u65F6\u5411\u540E\u62C9\u53D6\u7684\u5386\u53F2\u9875\u6570\u3002").addText(
       (text) => text.setValue(String(this.plugin.pluginSettings.deepSyncDepth)).onChange(async (v) => {
         const n = Math.max(1, Math.floor(Number(v) || 50));
         this.plugin.pluginSettings.deepSyncDepth = n;
@@ -3922,7 +3831,7 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateRule("deep_sync_default_depth", String(n));
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u8BC4\u8BBA\u6279\u91CF\u66F4\u65B0\u6700\u8FD1 N \u5929").setDesc("\u6279\u91CF\u5237\u65B0\u6700\u8FD1 N \u5929\u5185\u540C\u6B65\u6536\u85CF\u7684\u8BC4\u8BBA\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("\u8BC4\u8BBA\u6279\u91CF\u66F4\u65B0\u6700\u8FD1 N \u5929").setDesc("\u6279\u91CF\u5237\u65B0\u6700\u8FD1 N \u5929\u5185\u540C\u6B65\u6536\u85CF\u7684\u8BC4\u8BBA\u3002").addText(
       (text) => text.setValue(String(this.plugin.pluginSettings.commentBatchUpdateDays)).onChange(async (v) => {
         const n = Math.max(1, Math.floor(Number(v) || 7));
         this.plugin.pluginSettings.commentBatchUpdateDays = n;
@@ -3930,17 +3839,17 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         await this.plugin.updateRule("comment_batch_update_days", String(n));
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u540C\u6B65 MakerWorld \u70B9\u8D5E\u5185\u5BB9").setDesc("\u5F00\u542F\u540E\uFF0CMakerWorld \u540C\u6B65\u9664\u4E86\u6536\u85CF\u5939\uFF0C\u8FD8\u4F1A\u91C7\u96C6\u4F60\u70B9\u8D5E\u8FC7\u7684\u6A21\u578B\uFF08\u9ED8\u8BA4\u5173\u95ED\uFF09\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.makerworldSyncLikes).onChange(async (value) => {
-        this.plugin.pluginSettings.makerworldSyncLikes = value;
+    new import_obsidian.Setting(containerEl).setName("\u77E5\u4E4E\u5F00\u653E\u5E73\u53F0 Access Secret").setDesc("\u5728 developer.zhihu.com/profile \u751F\u6210\uFF0C\u4EC5\u5B58\u672C\u5730\u52A0\u5BC6\u533A\uFF1B\u5B98\u65B9 API \u53EA\u8986\u76D6\u516C\u5F00\u6536\u85CF\u5939\u3002\u7559\u7A7A\u5219\u7528\u6D4F\u89C8\u5668\u767B\u5F55\u6001\u515C\u5E95\u3002").addText(
+      (text) => text.setValue(this.plugin.pluginSettings.zhihuSecret).onChange(async (value) => {
+        this.plugin.pluginSettings.zhihuSecret = value.trim();
         await this.plugin.saveSettings();
-        await this.plugin.updateRule("makerworld_sync_likes", String(value));
+        await this.plugin.updateRule("zhihu_secret_set", value.trim() ? "1" : "0");
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u5E73\u53F0 Cookie").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u5E73\u53F0 Cookie").setHeading();
     for (const [key, label] of platforms) {
       let pasted = "";
-      const statusRow = new import_obsidian2.Setting(containerEl).setName(`${label} Cookie`).setDesc("\u6B63\u5728\u8BFB\u53D6\u72B6\u6001\u2026");
+      const statusRow = new import_obsidian.Setting(containerEl).setName(`${label} Cookie`).setDesc("\u6B63\u5728\u8BFB\u53D6\u72B6\u6001\u2026");
       statusRow.addTextArea((ta) => {
         ta.setPlaceholder("\u7C98\u8D34 Cookie-Editor \u5BFC\u51FA\u7684 JSON");
         ta.onChange((v) => {
@@ -3963,96 +3872,37 @@ var OmniSettingTab = class extends import_obsidian2.PluginSettingTab {
         (btn) => btn.setButtonText("\u5BFC\u5165").setCta().onClick(async () => {
           const value = pasted.trim();
           if (!value) {
-            new import_obsidian2.Notice("\u8BF7\u5148\u7C98\u8D34 Cookie JSON");
+            new import_obsidian.Notice("\u8BF7\u5148\u7C98\u8D34 Cookie JSON");
             return;
           }
           try {
             const res = await this.plugin.engine.importCookie(key, value);
-            new import_obsidian2.Notice(`${label} Cookie \u5DF2\u5BFC\u5165\uFF08${String(res.payload?.cookie_count ?? "?")} \u4E2A\uFF09`);
+            new import_obsidian.Notice(`${label} Cookie \u5DF2\u5BFC\u5165\uFF08${String(res.payload?.cookie_count ?? "?")} \u4E2A\uFF09`);
             pasted = "";
             await refreshStatus();
           } catch (err) {
-            new import_obsidian2.Notice(`\u5BFC\u5165\u5931\u8D25\uFF1A${err.message}`);
+            new import_obsidian.Notice(`\u5BFC\u5165\u5931\u8D25\uFF1A${err.message}`);
           }
         })
       );
       void refreshStatus();
     }
-    new import_obsidian2.Setting(containerEl).setName("Engine").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u81EA\u52A8\u542F\u52A8 Engine").setDesc("\u8BF7\u6C42\u6536\u85CF/\u540C\u6B65\u65F6\u81EA\u52A8\u62C9\u8D77 Engine\uFF1B\u5173\u95ED\u540E\u9700\u624B\u52A8\u70B9\u4FA7\u8FB9\u680F\u300C\u542F\u52A8\u5F15\u64CE\u300D\u3002").addToggle(
+    new import_obsidian.Setting(containerEl).setName("Engine").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u81EA\u52A8\u542F\u52A8 Engine").setDesc("\u8BF7\u6C42\u6536\u85CF/\u540C\u6B65\u65F6\u81EA\u52A8\u62C9\u8D77 Engine\uFF1B\u5173\u95ED\u540E\u9700\u624B\u52A8\u70B9\u4FA7\u8FB9\u680F\u300C\u542F\u52A8\u5F15\u64CE\u300D\u3002").addToggle(
       (toggle) => toggle.setValue(this.plugin.pluginSettings.autoStartEngine).onChange(async (value) => {
         this.plugin.pluginSettings.autoStartEngine = value;
         await this.plugin.saveSettings();
         this.plugin.updateEngineAutoStart();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("Node.js \u8DEF\u5F84").setDesc("Engine \u5B50\u8FDB\u7A0B\u4F7F\u7528\u7684 Node \u53EF\u6267\u884C\u6587\u4EF6\uFF1B\u7559\u7A7A\u5219\u4F7F\u7528 PATH \u4E2D\u7684 node\uFF08Windows \u53EF\u586B\u5B8C\u6574\u8DEF\u5F84\uFF09\u3002").addText(
+    new import_obsidian.Setting(containerEl).setName("Node.js \u8DEF\u5F84").setDesc("Engine \u5B50\u8FDB\u7A0B\u4F7F\u7528\u7684 Node \u53EF\u6267\u884C\u6587\u4EF6\uFF1B\u7559\u7A7A\u5219\u4F7F\u7528 PATH \u4E2D\u7684 node\uFF08Windows \u53EF\u586B\u5B8C\u6574\u8DEF\u5F84\uFF09\u3002").addText(
       (text) => text.setValue(this.plugin.pluginSettings.nodeBin).onChange(async (value) => {
         this.plugin.pluginSettings.nodeBin = value;
         await this.plugin.saveSettings();
         this.plugin.updateEngineNodeBin();
       })
     );
-    new import_obsidian2.Setting(containerEl).setName("\u672C\u5730\u6587\u4EF6").setHeading();
-    new import_obsidian2.Setting(containerEl).setName("\u5DF2\u52A0\u5165\u7684\u76EE\u5F55").setDesc("\u626B\u63CF\u8FD9\u4E9B\u76EE\u5F55\u4E2D\u7684 .md / .pdf\uFF0C\u6309\u7CFB\u7EDF\u533A URL \u81EA\u52A8\u5173\u8054\u5230\u6536\u85CF\u3002").addButton(
-      (btn) => btn.setButtonText("\u7ACB\u5373\u626B\u63CF\u5168\u90E8\u76EE\u5F55").setCta().onClick(() => {
-        void this.plugin.scanAllLocalFolders();
-      })
-    );
-    const folderList = containerEl.createEl("div", { cls: "omni-folder-list" });
-    const renderFolders = () => {
-      folderList.empty();
-      if (this.plugin.pluginSettings.localFolders.length === 0) {
-        folderList.createEl("div", { text: "\uFF08\u5C1A\u672A\u52A0\u5165\u76EE\u5F55\uFF09", cls: "omni-meta-text" });
-        return;
-      }
-      for (const folder of this.plugin.pluginSettings.localFolders) {
-        const row = folderList.createEl("div", { cls: "omni-folder-row" });
-        row.createEl("span", { text: folder, cls: "omni-folder-path" });
-        row.createEl("button", { text: "\u79FB\u9664", cls: "omni-btn omni-btn-sm" }).addEventListener("click", async () => {
-          this.plugin.pluginSettings.localFolders = this.plugin.pluginSettings.localFolders.filter((f) => f !== folder);
-          await this.plugin.saveSettings();
-          renderFolders();
-        });
-      }
-    };
-    renderFolders();
-    let newFolder = "";
-    new import_obsidian2.Setting(containerEl).setName("\u6DFB\u52A0\u76EE\u5F55").setDesc("\u53EF\u76F4\u63A5\u7C98\u8D34\u8DEF\u5F84\uFF08\u81EA\u52A8\u53BB\u6389\u5F15\u53F7\uFF09\uFF0C\u6216\u8F93\u5165\u65F6\u4ECE\u5217\u8868\u9009\u62E9\u5E93\u5185\u6587\u4EF6\u5939\u3002").addText((text) => {
-      text.setPlaceholder("D:\\Obsidian\\Zukunftkai\\Omni Collector");
-      text.onChange((v) => {
-        newFolder = v.replace(/^["']|["']$/g, "");
-      });
-      new FolderSuggest(this.app, text.inputEl);
-      return text;
-    }).addButton(
-      (btn) => btn.setButtonText("\u6DFB\u52A0").onClick(async () => {
-        const folder = newFolder.replace(/^["']|["']$/g, "");
-        if (!folder) {
-          new import_obsidian2.Notice("\u8BF7\u8F93\u5165\u76EE\u5F55\u8DEF\u5F84");
-          return;
-        }
-        if (!this.plugin.pluginSettings.localFolders.includes(folder)) {
-          this.plugin.pluginSettings.localFolders = [...this.plugin.pluginSettings.localFolders, folder];
-          await this.plugin.saveSettings();
-          renderFolders();
-        }
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("\u81EA\u52A8\u626B\u63CF").setDesc("\u5B9A\u65F6\u81EA\u52A8\u626B\u63CF\u5DF2\u52A0\u5165\u7684\u76EE\u5F55\uFF08\u626B\u63CF\u662F\u8F7B\u91CF\u7D22\u5F15\uFF0C\u4E0D\u4F1A\u4E0B\u8F7D\u5185\u5BB9\uFF09\u3002").addToggle(
-      (toggle) => toggle.setValue(this.plugin.pluginSettings.localAutoScan).onChange(async (value) => {
-        this.plugin.pluginSettings.localAutoScan = value;
-        await this.plugin.saveSettings();
-        this.plugin.reloadAutoScan();
-      })
-    ).addDropdown(
-      (dd) => dd.addOption("15", "\u6BCF 15 \u5206\u949F").addOption("30", "\u6BCF 30 \u5206\u949F").addOption("60", "\u6BCF\u5C0F\u65F6").addOption("360", "\u6BCF 6 \u5C0F\u65F6").setValue(String(this.plugin.pluginSettings.localAutoScanMinutes)).onChange(async (v) => {
-        this.plugin.pluginSettings.localAutoScanMinutes = Number(v);
-        await this.plugin.saveSettings();
-        this.plugin.reloadAutoScan();
-      })
-    );
-    new import_obsidian2.Setting(containerEl).setName("\u89C4\u5219\u4E2D\u5FC3").setHeading();
+    new import_obsidian.Setting(containerEl).setName("\u89C4\u5219\u4E2D\u5FC3").setHeading();
     const ruleBox = containerEl.createEl("div", { cls: "omni-rule-center" });
     const loadRules = async () => {
       ruleBox.empty();
@@ -4388,7 +4238,7 @@ var EngineClient = class {
     }
     this.dispose();
   }
-  /** 更新业务规则（如 makerworld_sync_likes 用户开关）。 */
+  /** 更新业务规则（如 zhihu_secret_set 标记）。 */
   async updateRule(key, value) {
     return this.request({
       request_id: (0, import_node_crypto.randomUUID)(),
@@ -4712,16 +4562,15 @@ var EngineClient = class {
 };
 
 // src/ui/sidebar.ts
-var import_obsidian3 = require("obsidian");
+var import_obsidian2 = require("obsidian");
 var VIEW_TYPE_OMNI = "omni-collector-view";
 var PLATFORMS = [
   { key: "bilibili", label: "B\u7AD9" },
   { key: "youtube", label: "YouTube" },
-  { key: "xiaohongshu", label: "\u5C0F\u7EA2\u4E66" },
-  { key: "makerworld", label: "MakerWorld" },
-  { key: "xiaoheihe", label: "\u5C0F\u9ED1\u76D2" }
+  { key: "zhihu", label: "\u77E5\u4E4E" },
+  { key: "x", label: "X" }
 ];
-var OmniSidebarView = class extends import_obsidian3.ItemView {
+var OmniSidebarView = class extends import_obsidian2.ItemView {
   constructor(leaf, engine, ctrl) {
     super(leaf);
     __publicField(this, "engine", engine);
@@ -4807,16 +4656,10 @@ var OmniSidebarView = class extends import_obsidian3.ItemView {
     this.addActionButton(contentRow, "\u5206\u7EC4\u8BC6\u522B", () => this.withBusy(async () => {
       await this.ctrl.runGroupRecognition();
     }));
-    this.addActionButton(contentRow, "AI \u5EFA\u8BAE\u5BA1\u6838", () => this.ctrl.openAiReview());
     this.addActionButton(contentRow, "Tag/Topic \u7BA1\u7406", () => this.ctrl.openTagTopic());
-    this.addActionButton(contentRow, "Manual AI \u6A21\u677F", () => this.ctrl.openManualAI());
-    this.addActionButton(contentRow, "Manual AI \u6279\u91CF", () => this.ctrl.openManualAIBatch());
     this.addActionButton(contentRow, "\u8BC4\u8BBA\u6279\u91CF\u66F4\u65B0", () => this.withBusy(async () => {
       await this.ctrl.refreshComments();
       await this.refreshStatus();
-    }));
-    this.addActionButton(contentRow, "\u626B\u63CF\u672C\u5730\u6587\u4EF6", () => this.withBusy(async () => {
-      await this.ctrl.scanLocalFiles();
     }));
     container.createEl("button", { text: "\u6253\u5F00\u8BBE\u7F6E", cls: "omni-btn" }).addEventListener("click", () => {
       void this.ctrl.openSettings();
@@ -4874,7 +4717,7 @@ var OmniSidebarView = class extends import_obsidian3.ItemView {
     try {
       await fn();
     } catch (err) {
-      new import_obsidian3.Notice(`Omni Collector: ${err.message}`);
+      new import_obsidian2.Notice(`Omni Collector: ${err.message}`);
       this.setStatus(false);
     } finally {
       this.busy = false;
@@ -4883,162 +4726,8 @@ var OmniSidebarView = class extends import_obsidian3.ItemView {
   }
 };
 
-// src/ui/ai-review.ts
-var import_obsidian4 = require("obsidian");
-var VIEW_TYPE_OMNI_AI = "omni-collector-ai-review";
-var TYPE_LABELS = {
-  suggested_tag: "\u6807\u7B7E\u5EFA\u8BAE",
-  suggested_topic: "Topic \u5EFA\u8BAE",
-  suggested_summary: "\u6458\u8981\u5EFA\u8BAE",
-  suggested_group: "\u5206\u7EC4\u5EFA\u8BAE",
-  suggested_relation: "\u5173\u8054\u5EFA\u8BAE"
-};
-function parseTagList(payload) {
-  const trimmed = (payload ?? "").trim();
-  if (!trimmed) return [];
-  try {
-    const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) return parsed.map(String);
-    if (typeof parsed === "string") return [parsed];
-    if (parsed && Array.isArray(parsed.tags)) {
-      return parsed.tags.map(String);
-    }
-  } catch {
-  }
-  return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
-}
-function renderPayload(container, suggestion) {
-  const payload = suggestion.payload ?? "";
-  if (suggestion.suggestion_type === "suggested_tag") {
-    const chips = container.createEl("div", { cls: "omni-chip-row" });
-    for (const tag of parseTagList(payload)) {
-      chips.createEl("span", { text: `#${tag}`, cls: "omni-badge omni-badge-tag" });
-    }
-    return;
-  }
-  if (suggestion.suggestion_type === "suggested_group") {
-    try {
-      const data = JSON.parse(payload);
-      container.createEl("span", {
-        text: `\u5206\u7EC4\u300C${data.name ?? "\u672A\u547D\u540D"}\u300D \xB7 ${data.collection_ids?.length ?? 0} \u6761`,
-        cls: "omni-badge omni-badge-group"
-      });
-      return;
-    } catch {
-    }
-  }
-  container.createEl("span", { text: payload, cls: "omni-ai-text" });
-}
-var OmniAiReviewView = class extends import_obsidian4.ItemView {
-  constructor(leaf, source) {
-    super(leaf);
-    __publicField(this, "source", source);
-    __publicField(this, "accepted", /* @__PURE__ */ new Map());
-  }
-  getViewType() {
-    return VIEW_TYPE_OMNI_AI;
-  }
-  getDisplayText() {
-    return "AI \u5EFA\u8BAE\u5BA1\u6838";
-  }
-  async onOpen() {
-    const container = this.containerEl.children[1];
-    container.empty();
-    const header = container.createEl("div", { cls: "omni-toolbar" });
-    if (this.source.openManualAI) {
-      header.createEl("button", { text: "Manual AI \u6A21\u677F", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.source.openManualAI?.());
-    }
-    if (this.source.openManualAIBatch) {
-      header.createEl("button", { text: "Manual AI \u6279\u91CF", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.source.openManualAIBatch?.());
-    }
-    const list = container.createEl("div", { cls: "omni-ai-list" });
-    container.createEl("div", {
-      text: "\u786E\u8BA4\u540E\u5EFA\u8BAE\u624D\u4F1A\u5199\u5165 Tag / Topic / \u5206\u7EC4\uFF1B\u5DF2\u786E\u8BA4\u9879 24 \u5C0F\u65F6\u5185\u53EF\u64A4\u9500\u3002",
-      cls: "omni-hint"
-    });
-    const render = async () => {
-      list.empty();
-      const items = await this.source.listPending().catch((e) => {
-        new import_obsidian4.Notice(`\u52A0\u8F7D\u5EFA\u8BAE\u5931\u8D25\uFF1A${e.message}`);
-        return [];
-      });
-      for (const s of items) {
-        this.renderRow(list, s, false);
-      }
-      for (const s of this.accepted.values()) {
-        this.renderRow(list, s, true);
-      }
-      if (items.length === 0 && this.accepted.size === 0) {
-        list.createEl("div", { text: "\u6682\u65E0\u5F85\u5BA1\u6838\u7684 AI \u5EFA\u8BAE", cls: "omni-empty" });
-      }
-    };
-    await render();
-  }
-  renderRow(list, s, isAccepted) {
-    const row = list.createEl("div", { cls: "omni-ai-row" });
-    const main = row.createEl("div", { cls: "omni-ai-main" });
-    const head = main.createEl("div", { cls: "omni-ai-head" });
-    head.createEl("span", {
-      text: TYPE_LABELS[s.suggestion_type] ?? s.suggestion_type,
-      cls: "omni-badge omni-badge-platform"
-    });
-    head.createEl("span", {
-      text: s.collection_title || s.collection_id,
-      cls: "omni-ai-title"
-    });
-    if (isAccepted) {
-      head.createEl("span", { text: "\u5DF2\u786E\u8BA4\uFF08\u53EF\u64A4\u9500\uFF09", cls: "omni-badge omni-badge-topic" });
-    }
-    renderPayload(main, s);
-    const actions = row.createEl("div", { cls: "omni-row-actions" });
-    if (!isAccepted) {
-      actions.createEl("button", { text: "\u786E\u8BA4", cls: "omni-act" }).addEventListener("click", () => {
-        void this.source.review(s.id, "accepted").then(() => {
-          this.accepted.set(s.id, s);
-          void this.reRender();
-        }).catch((e) => new import_obsidian4.Notice(`\u786E\u8BA4\u5931\u8D25\uFF1A${e.message}`));
-      });
-      actions.createEl("button", { text: "\u62D2\u7EDD", cls: "omni-act omni-act-ghost" }).addEventListener("click", () => {
-        void this.source.review(s.id, "rejected").then(() => this.reRender()).catch((e) => new import_obsidian4.Notice(`\u62D2\u7EDD\u5931\u8D25\uFF1A${e.message}`));
-      });
-    } else {
-      actions.createEl("button", { text: "\u64A4\u9500", cls: "omni-act" }).addEventListener("click", () => {
-        void this.source.undo(s.id).then(() => {
-          this.accepted.delete(s.id);
-          void this.reRender();
-        }).catch((e) => new import_obsidian4.Notice(`\u64A4\u9500\u5931\u8D25\uFF1A${e.message}`));
-      });
-    }
-  }
-  async reRender() {
-    const container = this.containerEl.children[1];
-    container.empty();
-    const header = container.createEl("div", { cls: "omni-toolbar" });
-    if (this.source.openManualAI) {
-      header.createEl("button", { text: "Manual AI \u6A21\u677F", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.source.openManualAI?.());
-    }
-    if (this.source.openManualAIBatch) {
-      header.createEl("button", { text: "Manual AI \u6279\u91CF", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.source.openManualAIBatch?.());
-    }
-    const list = container.createEl("div", { cls: "omni-ai-list" });
-    container.createEl("div", {
-      text: "\u786E\u8BA4\u540E\u5EFA\u8BAE\u624D\u4F1A\u5199\u5165 Tag / Topic / \u5206\u7EC4\uFF1B\u5DF2\u786E\u8BA4\u9879 24 \u5C0F\u65F6\u5185\u53EF\u64A4\u9500\u3002",
-      cls: "omni-hint"
-    });
-    const items = await this.source.listPending().catch(() => []);
-    for (const s of items) this.renderRow(list, s, false);
-    for (const s of this.accepted.values()) this.renderRow(list, s, true);
-    if (items.length === 0 && this.accepted.size === 0) {
-      list.createEl("div", { text: "\u6682\u65E0\u5F85\u5BA1\u6838\u7684 AI \u5EFA\u8BAE", cls: "omni-empty" });
-    }
-  }
-  async onClose() {
-    this.accepted.clear();
-  }
-};
-
 // src/ui/tag-topic.ts
-var import_obsidian5 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var VIEW_TYPE_OMNI_TAGS = "omni-collector-tags";
 function normTag(s) {
   return s.toLowerCase().replace(/[\s\u3000_\-—–.,，。:：;；'"“”‘’()（）]/g, "");
@@ -5086,7 +4775,7 @@ function findDuplicates(tags, limit = 30) {
   out.sort((x, y) => y.score - x.score);
   return out.slice(0, limit);
 }
-var OmniTagTopicView = class extends import_obsidian5.ItemView {
+var OmniTagTopicView = class extends import_obsidian3.ItemView {
   constructor(leaf, source) {
     super(leaf);
     __publicField(this, "source", source);
@@ -5212,15 +4901,15 @@ var OmniTagTopicView = class extends import_obsidian5.ItemView {
     parent.createEl("button", { text: label, cls: "omni-act" }).addEventListener("click", cb);
   }
   prompt(title, placeholder, submit) {
-    const modal = new import_obsidian5.Modal(this.app);
+    const modal = new import_obsidian3.Modal(this.app);
     modal.titleEl.setText(title);
     const input = modal.contentEl.createEl("input", { type: "text", placeholder });
     const done = () => {
       if (!input.value.trim()) return;
       void submit(input.value.trim()).then(() => {
         modal.close();
-        new import_obsidian5.Notice("\u5DF2\u4FDD\u5B58");
-      }).catch((e) => new import_obsidian5.Notice(`\u4FDD\u5B58\u5931\u8D25\uFF1A${e.message}`));
+        new import_obsidian3.Notice("\u5DF2\u4FDD\u5B58");
+      }).catch((e) => new import_obsidian3.Notice(`\u4FDD\u5B58\u5931\u8D25\uFF1A${e.message}`));
     };
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") done();
@@ -5231,15 +4920,15 @@ var OmniTagTopicView = class extends import_obsidian5.ItemView {
   async runWithNotice(fn, okText) {
     try {
       await fn();
-      new import_obsidian5.Notice(okText);
+      new import_obsidian3.Notice(okText);
     } catch (e) {
-      new import_obsidian5.Notice(`\u64CD\u4F5C\u5931\u8D25\uFF1A${e.message}`);
+      new import_obsidian3.Notice(`\u64CD\u4F5C\u5931\u8D25\uFF1A${e.message}`);
     }
   }
 };
 
 // src/ui/collection-list.ts
-var import_obsidian6 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/ui/helpers.ts
 function filterCollections(items, filter) {
@@ -5263,9 +4952,8 @@ var VIEW_TYPE_OMNI_LIST = "omni-collector-list";
 var PLATFORMS2 = [
   { key: "bilibili", label: "B\u7AD9" },
   { key: "youtube", label: "YouTube" },
-  { key: "xiaohongshu", label: "\u5C0F\u7EA2\u4E66" },
-  { key: "makerworld", label: "MakerWorld" },
-  { key: "xiaoheihe", label: "\u5C0F\u9ED1\u76D2" }
+  { key: "zhihu", label: "\u77E5\u4E4E" },
+  { key: "x", label: "X" }
 ];
 var PRIORITIES = [
   { key: "normal", label: "\u666E\u901A" },
@@ -5285,7 +4973,7 @@ function organizeLabel(state) {
       return "\u5DF2\u5F52\u6863 \u2713";
   }
 }
-var PromptModal = class extends import_obsidian6.Modal {
+var PromptModal = class extends import_obsidian4.Modal {
   constructor(app, title, placeholder, onSubmit) {
     super(app);
     __publicField(this, "title", title);
@@ -5296,7 +4984,7 @@ var PromptModal = class extends import_obsidian6.Modal {
     const { contentEl } = this;
     contentEl.createEl("h3", { text: this.title });
     let input = "";
-    new import_obsidian6.Setting(contentEl).addText(
+    new import_obsidian4.Setting(contentEl).addText(
       (text) => text.setPlaceholder(this.placeholder).onChange((v) => {
         input = v;
       })
@@ -5311,17 +4999,15 @@ var PromptModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
-var OmniCollectionListView = class extends import_obsidian6.ItemView {
+var OmniCollectionListView = class extends import_obsidian4.ItemView {
   constructor(leaf, source) {
     super(leaf);
     __publicField(this, "source", source);
     __publicField(this, "items", []);
-    __publicField(this, "localFiles", []);
     __publicField(this, "statusFilter", "all");
     __publicField(this, "saveTypeFilter", "all");
     __publicField(this, "priorityFilter", "all");
     __publicField(this, "platformFilter", null);
-    __publicField(this, "mode", "collections");
     __publicField(this, "viewMode", "list");
     __publicField(this, "coverCache", /* @__PURE__ */ new Map());
     __publicField(this, "selecting", false);
@@ -5362,17 +5048,7 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
   renderToolbar() {
     const tb = this.toolbarEl;
     tb.empty();
-    tb.createEl("button", { text: this.mode === "collections" ? "\u6536\u85CF" : "\u6536\u85CF", cls: `omni-chip${this.mode === "collections" ? " omni-chip-active" : ""}` }).addEventListener("click", () => {
-      this.mode = "collections";
-      this.renderToolbar();
-      void this.renderList();
-    });
-    tb.createEl("button", { text: "\u672C\u5730\u6587\u4EF6", cls: `omni-chip${this.mode === "local" ? " omni-chip-active" : ""}` }).addEventListener("click", () => {
-      this.mode = "local";
-      this.renderToolbar();
-      void this.renderList();
-    });
-    if (this.mode === "collections") {
+    {
       tb.createEl("span", { text: "\uFF5C", cls: "omni-toolbar-sep" });
       tb.createEl("button", { text: "\u5168\u90E8\u5E73\u53F0", cls: `omni-chip${this.platformFilter === null ? " omni-chip-active" : ""}` }).addEventListener("click", () => {
         this.platformFilter = null;
@@ -5431,52 +5107,30 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
     tb.createEl("button", { text: "\u5237\u65B0", cls: "omni-chip omni-chip-refresh" }).addEventListener("click", () => {
       void this.refreshList();
     });
-    if (this.mode === "collections") {
-      tb.createEl("button", { text: this.viewMode === "list" ? "\u5207\u6362\u5361\u7247\u89C6\u56FE" : "\u5207\u6362\u5217\u8868\u89C6\u56FE", cls: "omni-chip" }).addEventListener("click", () => {
-        this.viewMode = this.viewMode === "list" ? "card" : "list";
-        this.renderToolbar();
-        void this.renderList();
-      });
-      if (this.mode === "collections") {
-        tb.createEl("button", { text: this.selecting ? "\u5B8C\u6210\u9009\u62E9" : "\u6279\u91CF\u9009\u62E9", cls: `omni-chip${this.selecting ? " omni-chip-active" : ""}` }).addEventListener("click", () => {
-          this.selecting = !this.selecting;
-          this.selected.clear();
-          this.renderToolbar();
-          this.renderBatchBar();
-          void this.renderList();
-        });
-      }
-    }
+    tb.createEl("button", { text: this.viewMode === "list" ? "\u5207\u6362\u5361\u7247\u89C6\u56FE" : "\u5207\u6362\u5217\u8868\u89C6\u56FE", cls: "omni-chip" }).addEventListener("click", () => {
+      this.viewMode = this.viewMode === "list" ? "card" : "list";
+      this.renderToolbar();
+      void this.renderList();
+    });
+    tb.createEl("button", { text: this.selecting ? "\u5B8C\u6210\u9009\u62E9" : "\u6279\u91CF\u9009\u62E9", cls: `omni-chip${this.selecting ? " omni-chip-active" : ""}` }).addEventListener("click", () => {
+      this.selecting = !this.selecting;
+      this.selected.clear();
+      this.renderToolbar();
+      this.renderBatchBar();
+      void this.renderList();
+    });
   }
   async refreshList() {
     try {
       this.items = await this.source.list();
     } catch (err) {
-      new import_obsidian6.Notice(`\u52A0\u8F7D\u6536\u85CF\u5931\u8D25\uFF1A${err.message}`);
+      new import_obsidian4.Notice(`\u52A0\u8F7D\u6536\u85CF\u5931\u8D25\uFF1A${err.message}`);
     }
     this.renderToolbar();
     await this.renderList();
   }
   async renderList() {
     this.listEl.empty();
-    if (this.mode === "local") {
-      this.totalEl.setText(`\u672C\u5730\u6587\u4EF6 ${this.localFiles.length} \u4E2A`);
-      if (this.localFiles.length === 0) {
-        this.listEl.createEl("div", { text: "\u6682\u65E0\u672C\u5730\u6587\u4EF6\uFF08\u5230\u8BBE\u7F6E\u52A0\u5165\u76EE\u5F55\u5E76\u626B\u63CF\uFF09", cls: "omni-empty" });
-        return;
-      }
-      for (const f of this.localFiles) {
-        const row = this.listEl.createEl("div", { cls: "omni-row" });
-        const main = row.createEl("div", { cls: "omni-row-main" });
-        main.createEl("div", { text: f.file_name || f.file_path.split(/[\\/]/).pop() || f.file_path, cls: "omni-title" });
-        const meta = main.createEl("div", { cls: "omni-row-meta" });
-        meta.createEl("span", { text: f.file_type ?? "file", cls: "omni-badge omni-badge-platform" });
-        meta.createEl("span", { text: f.linked_title ? `\u5173\u8054\uFF1A${f.linked_title}` : "\u672A\u5173\u8054", cls: "omni-badge" });
-        meta.createEl("span", { text: f.file_path, cls: "omni-meta-text" });
-        row.createEl("button", { text: "\u6253\u5F00", cls: "omni-act" }).addEventListener("click", () => this.source.openLocalFile(f.file_path));
-      }
-      return;
-    }
     const filter = {};
     if (this.statusFilter === "unorganized") filter.status = "unorganized";
     else if (this.statusFilter === "organized") filter.status = "organized";
@@ -5539,22 +5193,6 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
       for (const t of item.topics ?? []) meta.createEl("span", { text: `\u25CE${t}`, cls: "omni-badge omni-badge-topic" });
       meta.createEl("span", { text: new Date(item.collectedAt).toLocaleDateString("zh-CN"), cls: "omni-meta-text" });
       const actions = row.createEl("div", { cls: "omni-row-actions" });
-      if (item.saveType === "watch_later") {
-        const fav = actions.createEl("button", { text: "\u8F6C\u6536\u85CF", cls: "omni-act" });
-        fav.addEventListener("click", () => {
-          void this.source.onConvert(item.id, "favorited").then(() => {
-            item.saveType = "favorited";
-            void this.renderList();
-          });
-        });
-        const done = actions.createEl("button", { text: "\u5F52\u6863\u5B8C\u6210", cls: "omni-act" });
-        done.addEventListener("click", () => {
-          void this.source.onConvert(item.id, "archived").then(() => {
-            item.organizeStatus = "archived";
-            void this.renderList();
-          });
-        });
-      }
       this.addRowButton(actions, "\uFF0BTag", () => this.promptTag(item));
       this.addRowButton(actions, "\uFF0BTopic", () => this.promptTopic(item));
       this.addPriorityButton(actions, item);
@@ -5580,7 +5218,7 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
       void this.source.onPriority(item.id, next.key).then(() => {
         item.priority = next.key;
         void this.renderList();
-      }).catch((e) => new import_obsidian6.Notice(`\u4F18\u5148\u7EA7\u66F4\u65B0\u5931\u8D25\uFF1A${e.message}`)).finally(() => btn.removeClass("omni-btn-disabled"));
+      }).catch((e) => new import_obsidian4.Notice(`\u4F18\u5148\u7EA7\u66F4\u65B0\u5931\u8D25\uFF1A${e.message}`)).finally(() => btn.removeClass("omni-btn-disabled"));
     });
   }
   addOrganizeButton(parent, item) {
@@ -5594,7 +5232,7 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
       }).catch((e) => {
         btn.removeClass("omni-btn-disabled");
         btn.setText(organizeLabel(item.organizeStatus));
-        new import_obsidian6.Notice(`\u66F4\u65B0\u5931\u8D25\uFF1A${e.message}`);
+        new import_obsidian4.Notice(`\u66F4\u65B0\u5931\u8D25\uFF1A${e.message}`);
       });
     });
   }
@@ -5603,7 +5241,7 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
       void this.source.onTag(item.id, tag).then(() => {
         item.tags = [...item.tags ?? [], tag];
         void this.renderList();
-      }).catch((e) => new import_obsidian6.Notice(`Tag \u6DFB\u52A0\u5931\u8D25\uFF1A${e.message}`));
+      }).catch((e) => new import_obsidian4.Notice(`Tag \u6DFB\u52A0\u5931\u8D25\uFF1A${e.message}`));
     }).open();
   }
   promptTopic(item) {
@@ -5611,7 +5249,7 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
       void this.source.onTopic(item.id, topic).then(() => {
         item.topics = [...item.topics ?? [], topic];
         void this.renderList();
-      }).catch((e) => new import_obsidian6.Notice(`Topic \u6DFB\u52A0\u5931\u8D25\uFF1A${e.message}`));
+      }).catch((e) => new import_obsidian4.Notice(`Topic \u6DFB\u52A0\u5931\u8D25\uFF1A${e.message}`));
     }).open();
   }
   currentItems() {
@@ -5648,8 +5286,6 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
     bar.createEl("button", { text: "\u6279\u91CF Topic", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.promptBatch("topic"));
     bar.createEl("button", { text: "\u8BBE\u4E3A\u91CD\u8981", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("priority", "important"));
     bar.createEl("button", { text: "\u6807\u8BB0\u5DF2\u6574\u7406", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("organize", "organized"));
-    bar.createEl("button", { text: "\u8F6C\u6536\u85CF", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("convert", "favorited"));
-    bar.createEl("button", { text: "\u5F52\u6863", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => this.runBatch("convert", "archived"));
   }
   promptBatch(action) {
     new PromptModal(this.app, action === "tag" ? "\u6279\u91CF\u6253 Tag" : "\u6279\u91CF\u5F52\u5165 Topic", action === "tag" ? "\u8F93\u5165\u6807\u7B7E\u540D" : "\u8F93\u5165 Topic \u540D", (v) => {
@@ -5659,17 +5295,17 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
   async runBatch(action, value) {
     const ids = [...this.selected];
     if (ids.length === 0) {
-      new import_obsidian6.Notice("\u8BF7\u5148\u52FE\u9009\u6536\u85CF");
+      new import_obsidian4.Notice("\u8BF7\u5148\u52FE\u9009\u6536\u85CF");
       return;
     }
     try {
       await this.source.onBatch(ids, action, value);
-      new import_obsidian6.Notice(`\u5DF2\u6279\u91CF\u5904\u7406 ${ids.length} \u6761`);
+      new import_obsidian4.Notice(`\u5DF2\u6279\u91CF\u5904\u7406 ${ids.length} \u6761`);
       this.selected.clear();
       this.renderBatchBar();
       await this.refreshList();
     } catch (err) {
-      new import_obsidian6.Notice(`\u6279\u91CF\u64CD\u4F5C\u5931\u8D25\uFF1A${err.message}`);
+      new import_obsidian4.Notice(`\u6279\u91CF\u64CD\u4F5C\u5931\u8D25\uFF1A${err.message}`);
     }
   }
   async onClose() {
@@ -5677,64 +5313,13 @@ var OmniCollectionListView = class extends import_obsidian6.ItemView {
 };
 
 // src/ui/collection-detail.ts
-var import_obsidian8 = require("obsidian");
-
-// src/ui/manual-ai.ts
-var import_obsidian7 = require("obsidian");
-function buildManualTemplate(item) {
-  return [
-    "\u4F60\u662F\u6536\u85CF\u6574\u7406\u52A9\u624B\u3002\u6839\u636E\u4E0B\u9762\u7684\u6536\u85CF\u5185\u5BB9\uFF0C\u8F93\u51FA JSON \u6570\u7EC4\uFF0C\u5143\u7D20\u7ED3\u6784\uFF1A",
-    '{"type":"suggested_tag|suggested_topic|suggested_summary|suggested_group","payload":"...","confidence":0-1}\u3002',
-    "suggested_tag \u7684 payload \u4E3A\u5B57\u7B26\u4E32\u6570\u7EC4 JSON\uFF1Bsuggested_topic \u4E3A\u5355\u4E2A\u4E3B\u9898\u5B57\u7B26\u4E32\uFF1B",
-    "suggested_summary \u4E3A 1-2 \u53E5\u6458\u8981\u5B57\u7B26\u4E32\uFF1Bsuggested_group \u4E3A\u6536\u85CF\u5206\u7EC4\u540D\u3002\u53EA\u8F93\u51FA JSON\uFF0C\u4E0D\u8981\u989D\u5916\u89E3\u91CA\u3002",
-    "",
-    `\u5DF2\u6709Tag\uFF1A${(item.tags ?? []).length > 0 ? (item.tags ?? []).join(", ") : "\u65E0"}`,
-    "--- \u6536\u85CF\u5185\u5BB9 ---",
-    `\u5E73\u53F0\uFF1A${item.platform}`,
-    `\u6807\u9898\uFF1A${item.title}`,
-    `\u4F5C\u8005\uFF1A${item.author ?? "\u672A\u77E5"}`,
-    `\u94FE\u63A5\uFF1A${item.url}`,
-    item.description ? `\u7B80\u4ECB\uFF1A${item.description.slice(0, 500)}` : ""
-  ].filter((line) => line !== "").join("\n");
-}
-function openManualAIModal(app, item, source) {
-  const modal = new import_obsidian7.Modal(app);
-  modal.titleEl.setText("Manual \u6A21\u5F0F AI\uFF08PRD 19.3\uFF09");
-  modal.contentEl.createEl("h4", { text: "1) \u590D\u5236\u6A21\u677F\u5230\u4EFB\u610F AI \u5DE5\u5177\uFF08ChatGPT/DeepSeek \u7B49\uFF09" });
-  const tpl = modal.contentEl.createEl("textarea", {
-    attr: { rows: "12", style: "width:100%;" }
-  });
-  tpl.value = buildManualTemplate(item);
-  modal.contentEl.createEl("button", { text: "\u590D\u5236\u6A21\u677F", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => {
-    tpl.select();
-    document.execCommand("copy");
-    new import_obsidian7.Notice("\u6A21\u677F\u5DF2\u590D\u5236");
-  });
-  modal.contentEl.createEl("h4", { text: "2) \u7C98\u8D34 AI \u8FD4\u56DE\u7684\u7ED3\u679C" });
-  const reply = modal.contentEl.createEl("textarea", {
-    attr: { rows: "8", style: "width:100%;" }
-  });
-  modal.contentEl.createEl("button", { text: "\u63D0\u4EA4\u5E76\u751F\u6210\u5EFA\u8BAE", cls: "omni-btn omni-btn-primary" }).addEventListener("click", () => {
-    if (!reply.value.trim()) {
-      new import_obsidian7.Notice("\u8BF7\u7C98\u8D34 AI \u56DE\u590D");
-      return;
-    }
-    void source.submit(item.id, reply.value).then(() => {
-      modal.close();
-      new import_obsidian7.Notice("\u5EFA\u8BAE\u5DF2\u751F\u6210\uFF08\u8BF7\u5230 AI \u5EFA\u8BAE\u5BA1\u6838\u786E\u8BA4\uFF09");
-    }).catch((e) => new import_obsidian7.Notice(`\u63D0\u4EA4\u5931\u8D25\uFF1A${e.message}`));
-  });
-  modal.open();
-}
-
-// src/ui/collection-detail.ts
+var import_obsidian5 = require("obsidian");
 var VIEW_TYPE_OMNI_DETAIL = "omni-collector-detail";
 var PLATFORM_LABELS = {
   bilibili: "B\u7AD9",
   youtube: "YouTube",
-  xiaohongshu: "\u5C0F\u7EA2\u4E66",
-  makerworld: "MakerWorld",
-  xiaoheihe: "\u5C0F\u9ED1\u76D2"
+  zhihu: "\u77E5\u4E4E",
+  x: "X"
 };
 function embedUrl(item) {
   if (item.platform === "bilibili") {
@@ -5747,7 +5332,7 @@ function embedUrl(item) {
   }
   return null;
 }
-var OmniCollectionDetailView = class extends import_obsidian8.ItemView {
+var OmniCollectionDetailView = class extends import_obsidian5.ItemView {
   constructor(leaf, source) {
     super(leaf);
     __publicField(this, "source", source);
@@ -5843,7 +5428,7 @@ var OmniCollectionDetailView = class extends import_obsidian8.ItemView {
       }).catch((e) => {
         bodyBtn.setText("\u52A0\u8F7D\u6B63\u6587");
         bodyBtn.removeClass("omni-btn-disabled");
-        new import_obsidian8.Notice(`\u6B63\u6587\u52A0\u8F7D\u5931\u8D25\uFF1A${e.message}`);
+        new import_obsidian5.Notice(`\u6B63\u6587\u52A0\u8F7D\u5931\u8D25\uFF1A${e.message}`);
       });
     });
     const chips = container.createEl("div", { cls: "omni-detail-chips" });
@@ -5853,11 +5438,6 @@ var OmniCollectionDetailView = class extends import_obsidian8.ItemView {
     tagBtn.addEventListener("click", () => this.promptText("\u6253 Tag", "\u8F93\u5165\u6807\u7B7E\u540D", (v) => this.source.onTag(item.id, v)));
     const topicBtn = chips.createEl("button", { text: "\uFF0BTopic", cls: "omni-chip" });
     topicBtn.addEventListener("click", () => this.promptText("\u5F52\u5165 Topic", "\u8F93\u5165 Topic \u540D", (v) => this.source.onTopic(item.id, v)));
-    const manualBtn = chips.createEl("button", { text: "Manual AI", cls: "omni-chip" });
-    manualBtn.addEventListener(
-      "click",
-      () => openManualAIModal(this.app, item, { submit: (id, reply) => this.source.submitManualAI(id, reply) })
-    );
     if ((item.comments ?? []).length > 0) {
       container.createEl("div", { text: "\u8BC4\u8BBA", cls: "omni-section-title" });
       const comments = container.createEl("div", { cls: "omni-detail-comments" });
@@ -5866,19 +5446,6 @@ var OmniCollectionDetailView = class extends import_obsidian8.ItemView {
         row.createEl("span", { text: c.author, cls: "omni-comment-author" });
         row.createEl("span", { text: c.content, cls: "omni-comment-content" });
       }
-    }
-    if ((item.linkedFiles ?? []).length > 0) {
-      container.createEl("div", { text: "\u672C\u5730\u6587\u4EF6", cls: "omni-section-title" });
-      const files = container.createEl("div", { cls: "omni-detail-files" });
-      for (const f of item.linkedFiles ?? []) {
-        const name = f.split(/[\\/]/).pop() ?? f;
-        files.createEl("div", { text: `\u{1F4C4} ${name}`, cls: "omni-file-row", attr: { title: f } });
-      }
-      const openBtn = container.createEl("button", { text: "\u6253\u5F00\u7B14\u8BB0", cls: "omni-btn omni-btn-sm" });
-      openBtn.addEventListener("click", () => {
-        const first = (item.linkedFiles ?? [])[0];
-        if (first) this.source.openLocalFile(first);
-      });
     }
     if ((item.related ?? []).length > 0) {
       container.createEl("div", { text: "\u76F8\u5173\u6536\u85CF", cls: "omni-section-title" });
@@ -5913,15 +5480,15 @@ var OmniCollectionDetailView = class extends import_obsidian8.ItemView {
     });
   }
   promptText(title, placeholder, submit) {
-    const modal = new import_obsidian8.Modal(this.app);
+    const modal = new import_obsidian5.Modal(this.app);
     modal.titleEl.setText(title);
     const input = modal.contentEl.createEl("input", { type: "text", placeholder });
     const done = () => {
       if (input.value.trim()) {
         void submit(input.value.trim()).then(() => {
           modal.close();
-          new import_obsidian8.Notice("\u5DF2\u4FDD\u5B58");
-        }).catch((err) => new import_obsidian8.Notice(`\u4FDD\u5B58\u5931\u8D25\uFF1A${err.message}`));
+          new import_obsidian5.Notice("\u5DF2\u4FDD\u5B58");
+        }).catch((err) => new import_obsidian5.Notice(`\u4FDD\u5B58\u5931\u8D25\uFF1A${err.message}`));
       }
     };
     input.addEventListener("keydown", (e) => {
@@ -5947,13 +5514,23 @@ function sanitizeFilename(name) {
   return (name || "untitled").replace(/[\\/:*?"<>|]/g, "_").slice(0, 120);
 }
 var MarkdownBuilder = class {
-  buildFromDTO(dto) {
-    const system = [
+  /** 系统区内容（Engine 管理，可覆盖重建）：元信息 + 展开标记 + 全文。 */
+  buildSystemZone(dto) {
+    const expanded = dto.syncStatus === "full" || !!dto.expandedAt;
+    const full = (dto.transcript || dto.description || "").slice(0, 12e3);
+    const lines = [
       `title: ${yamlString(dto.title)}`,
       `platform: ${yamlString(dto.platform)}`,
       `url: ${yamlString(dto.url)}`,
-      `sync_status: ${yamlString(dto.syncStatus)}`
-    ].join("\n");
+      `sync_status: ${yamlString(dto.syncStatus)}`,
+      `expanded: ${expanded ? "true" : "false"}`,
+      `expanded_at: ${yamlString(dto.expandedAt ?? "")}`
+    ];
+    if (full) lines.push("```\u5168\u6587", full, "```");
+    return lines.join("\n");
+  }
+  buildFromDTO(dto) {
+    const system = this.buildSystemZone(dto);
     const comments = (dto.comments ?? []).map((c) => `- **${c.author}**\uFF1A${c.content}`).join("\n");
     const frontmatter = this.buildFrontmatter(dto);
     const graphLinks = this.buildGraphLinks(dto);
@@ -6009,12 +5586,7 @@ var MarkdownBuilder = class {
     if (!this.validateMarkers(md)) {
       throw new Error("PLUGIN_002: system zone markers missing or misordered");
     }
-    const system = [
-      `title: ${yamlString(dto.title)}`,
-      `platform: ${yamlString(dto.platform)}`,
-      `url: ${yamlString(dto.url)}`,
-      `sync_status: ${yamlString(dto.syncStatus)}`
-    ].join("\n");
+    const system = this.buildSystemZone(dto);
     let out = md.replace(
       new RegExp(`${SYSTEM_START}[\\s\\S]*?${SYSTEM_END}`),
       `${SYSTEM_START}
@@ -6108,71 +5680,25 @@ ${links}
   }
 };
 
-// src/ui/manual-ai-batch.ts
-var import_obsidian9 = require("obsidian");
-function buildManualBatchTemplate(items) {
-  const list = items.map(
-    (item, i) => `${i}. \u6807\u9898\uFF1A${item.title}
-   \u5E73\u53F0\uFF1A${item.platform}
-   \u94FE\u63A5\uFF1A${item.url}
-` + (item.description ? `   \u7B80\u4ECB\uFF1A${item.description.slice(0, 300)}
-` : "")
-  ).join("\n");
-  return [
-    "\u4F60\u662F\u6536\u85CF\u6574\u7406\u52A9\u624B\u3002\u4E0B\u9762\u6709 " + items.length + " \u6761\u6536\u85CF\uFF0C\u8BF7\u9010\u6761\u8F93\u51FA JSON \u6570\u7EC4\uFF0C\u5143\u7D20\u7ED3\u6784\uFF1A",
-    '[{"index":0,"suggestions":[{"type":"suggested_tag|suggested_topic|suggested_summary|suggested_group","payload":"...","confidence":0-1}]}]',
-    "index \u5FC5\u987B\u4E0E\u6536\u85CF\u7F16\u53F7\u4E00\u4E00\u5BF9\u5E94\uFF080 \u5F00\u59CB\uFF09\uFF1Bsuggested_tag \u7684 payload \u4E3A\u5B57\u7B26\u4E32\u6570\u7EC4 JSON\uFF1B",
-    "suggested_topic \u4E3A\u5355\u4E2A\u4E3B\u9898\u5B57\u7B26\u4E32\uFF1Bsuggested_summary \u4E3A 1-2 \u53E5\u6458\u8981\uFF1B",
-    "suggested_group \u4E3A\u6536\u85CF\u5206\u7EC4\u540D\u3002\u53EA\u8F93\u51FA JSON\uFF0C\u4E0D\u8981\u989D\u5916\u89E3\u91CA\u3002",
-    "",
-    "--- \u6536\u85CF\u5217\u8868 ---",
-    list
-  ].join("\n");
-}
-function openManualAIBatchModal(app, items, source) {
-  const modal = new import_obsidian9.Modal(app);
-  modal.titleEl.setText(`Manual AI \u6279\u91CF\uFF08${items.length} \u6761\uFF09`);
-  modal.contentEl.createEl("h4", { text: "1) \u590D\u5236\u6A21\u677F\u5230\u4EFB\u610F AI \u5DE5\u5177\uFF08\u4E00\u6B21\u5904\u7406\u5168\u90E8\u6536\u85CF\uFF09" });
-  const tpl = modal.contentEl.createEl("textarea", {
-    attr: { rows: "16", style: "width:100%;" }
-  });
-  tpl.value = buildManualBatchTemplate(items);
-  modal.contentEl.createEl("button", { text: "\u590D\u5236\u6A21\u677F", cls: "omni-btn omni-btn-sm" }).addEventListener("click", () => {
-    tpl.select();
-    document.execCommand("copy");
-    new import_obsidian9.Notice("\u6A21\u677F\u5DF2\u590D\u5236");
-  });
-  modal.contentEl.createEl("h4", { text: "2) \u7C98\u8D34 AI \u8FD4\u56DE\u7684\u6279\u91CF\u7ED3\u679C" });
-  const reply = modal.contentEl.createEl("textarea", {
-    attr: { rows: "10", style: "width:100%;" }
-  });
-  modal.contentEl.createEl("button", { text: "\u63D0\u4EA4\u5E76\u751F\u6210\u5EFA\u8BAE", cls: "omni-btn omni-btn-primary" }).addEventListener("click", () => {
-    if (!reply.value.trim()) {
-      new import_obsidian9.Notice("\u8BF7\u7C98\u8D34 AI \u56DE\u590D");
-      return;
-    }
-    void source.submit(
-      items.map((i) => i.id),
-      reply.value
-    ).then((saved) => {
-      modal.close();
-      new import_obsidian9.Notice(`\u6279\u91CF\u5EFA\u8BAE\u5DF2\u751F\u6210\uFF08${saved} \u6761\uFF0C\u8BF7\u5230 AI \u5EFA\u8BAE\u5BA1\u6838\u786E\u8BA4\uFF09`);
-    }).catch((e) => new import_obsidian9.Notice(`\u63D0\u4EA4\u5931\u8D25\uFF1A${e.message}`));
-  });
-  modal.open();
-}
-
 // src/sync/sync-scheduler.ts
+function parseTimeOfDay(v) {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec((v ?? "").trim());
+  if (!m) return { h: 9, m: 0 };
+  return { h: Number(m[1]), m: Number(m[2]) };
+}
 function nextSyncAt(input) {
   const now = input.now ?? /* @__PURE__ */ new Date();
   if (!input.lastRunAt) {
     return new Date(now.getTime() + 5 * 60 * 1e3);
   }
-  const last = new Date(input.lastRunAt).getTime();
+  const last = new Date(input.lastRunAt);
+  const { h, m } = parseTimeOfDay(input.timeOfDay);
+  const anchor = new Date(last);
+  anchor.setHours(h, m, 0, 0);
   const intervalMs = input.frequency === "weekly" ? 7 * 24 * 3600 * 1e3 : 24 * 3600 * 1e3;
   const windowMs = Math.max(0, input.randomWindowMinutes ?? 120) * 60 * 1e3;
   const offset = windowMs > 0 ? Math.floor(Math.random() * windowMs) : 0;
-  return new Date(last + intervalMs + offset);
+  return new Date(anchor.getTime() + intervalMs + offset);
 }
 function isSyncDue(input) {
   return nextSyncAt(input).getTime() <= (input.now ?? /* @__PURE__ */ new Date()).getTime();
@@ -6182,12 +5708,11 @@ function dailyCapReached(todayCount, cap) {
 }
 
 // src/main.ts
-var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
+var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
   constructor() {
     super(...arguments);
     __publicField(this, "pluginSettings");
     __publicField(this, "engine");
-    __publicField(this, "autoScanTimer", null);
     __publicField(this, "syncTimer", null);
   }
   async onload() {
@@ -6207,7 +5732,6 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
       this.pluginSettings.wsToken = (0, import_node_crypto2.randomUUID)();
     }
     await saveSettings(this, this.pluginSettings);
-    this.reloadAutoScan();
     this.reloadSyncScheduler();
     this.engine = new EngineClient({
       pipePath: `\\\\.\\pipe\\omni-collector-${process.pid}`,
@@ -6221,7 +5745,6 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     this.registerView(VIEW_TYPE_OMNI_LIST, (leaf) => {
       const source = {
         list: () => this.engine.listCollections(),
-        listLocalFiles: () => this.engine.listLocalFiles(),
         onOpenDetail: (id) => void this.openCollectionDetail(id),
         onBatch: (ids, action, value) => this.engine.batch(ids, action, value).then(() => void 0),
         getDefaultViewMode: () => this.pluginSettings.viewMode,
@@ -6229,12 +5752,7 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         onTag: (id, tag) => this.engine.addTag(id, tag).then(() => void 0),
         onTopic: (id, topic) => this.engine.addTopic(id, topic).then(() => void 0),
         onPriority: (id, priority) => this.engine.setPriority(id, priority).then(() => void 0),
-        onConvert: (id, to) => this.engine.convertCollection(id, to).then(() => void 0),
-        ensureCover: (url) => this.ensureCover(url),
-        openLocalFile: (filePath) => {
-          const file = this.app.vault.getAbstractFileByPath(filePath);
-          if (file) void this.app.workspace.getLeaf(false).openFile(file);
-        }
+        ensureCover: (url) => this.ensureCover(url)
       };
       return new OmniCollectionListView(leaf, source);
     });
@@ -6246,24 +5764,9 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         onPriority: (id, p) => this.engine.setPriority(id, p).then(() => void 0),
         onTag: (id, t) => this.engine.addTag(id, t).then(() => void 0),
         onTopic: (id, t) => this.engine.addTopic(id, t).then(() => void 0),
-        openLocalFile: (filePath) => {
-          const file = this.app.vault.getAbstractFileByPath(filePath);
-          if (file) void this.app.workspace.getLeaf(false).openFile(file);
-        },
-        ensureCover: (url) => this.ensureCover(url),
-        submitManualAI: (id, reply) => this.engine.submitManualAI(id, reply).then(() => void 0)
+        ensureCover: (url) => this.ensureCover(url)
       };
       return new OmniCollectionDetailView(leaf, source);
-    });
-    this.registerView(VIEW_TYPE_OMNI_AI, (leaf) => {
-      const source = {
-        listPending: () => this.engine.listAiSuggestions(),
-        review: (id, status) => this.engine.reviewAiSuggestion(id, status).then(() => void 0),
-        undo: (id) => this.engine.undoAiSuggestion(id).then(() => void 0),
-        openManualAI: () => void this.openManualAIPicker(),
-        openManualAIBatch: () => void this.openManualAIBatchPicker()
-      };
-      return new OmniAiReviewView(leaf, source);
     });
     this.registerView(VIEW_TYPE_OMNI_TAGS, (leaf) => {
       const source = {
@@ -6281,31 +5784,10 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     });
     this.addSettingTab(new OmniSettingTab(this.app, this));
     this.addCommand({
-      id: "open-ai-review",
-      name: "\u6253\u5F00 AI \u5EFA\u8BAE\u5BA1\u6838",
-      callback: () => {
-        void this.openAiReviewView();
-      }
-    });
-    this.addCommand({
       id: "open-tag-topic-manager",
       name: "\u6253\u5F00 Tag/Topic \u7BA1\u7406",
       callback: () => {
         void this.openTagTopicView();
-      }
-    });
-    this.addCommand({
-      id: "open-manual-ai",
-      name: "Manual AI \u6A21\u677F\uFF08\u9009\u62E9\u6536\u85CF\uFF09",
-      callback: () => {
-        void this.openManualAIPicker();
-      }
-    });
-    this.addCommand({
-      id: "open-manual-ai-batch",
-      name: "Manual AI \u6279\u91CF\uFF08\u6253\u5305 N \u6761\u6536\u85CF\uFF09",
-      callback: () => {
-        void this.openManualAIBatchPicker();
       }
     });
     this.addCommand({
@@ -6315,9 +5797,9 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         try {
           const res = await this.engine.runAutoGroup();
           const candidates = res.payload?.candidates ?? [];
-          new import_obsidian10.Notice(`\u5206\u7EC4\u8BC6\u522B\u5B8C\u6210\uFF1A\u53D1\u73B0 ${candidates.length} \u4E2A\u5019\u9009\uFF08\u8BF7\u5230 AI \u5EFA\u8BAE\u5BA1\u6838\u786E\u8BA4\uFF09`);
+          new import_obsidian6.Notice(`\u5206\u7EC4\u8BC6\u522B\u5B8C\u6210\uFF1A\u53D1\u73B0 ${candidates.length} \u4E2A\u5019\u9009\uFF08\u8BF7\u5230 Tag/Topic \u7BA1\u7406\u786E\u8BA4\uFF09`);
         } catch (err) {
-          new import_obsidian10.Notice(`\u5206\u7EC4\u8BC6\u522B\u5931\u8D25\uFF1A${err.message}`);
+          new import_obsidian6.Notice(`\u5206\u7EC4\u8BC6\u522B\u5931\u8D25\uFF1A${err.message}`);
         }
       }
     });
@@ -6342,16 +5824,9 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         void this.openCollectionList();
       }
     });
-    this.addCommand({
-      id: "scan-local-files",
-      name: "\u626B\u63CF\u672C\u5730\u6587\u4EF6\u5E76\u5173\u8054\u6536\u85CF",
-      callback: () => {
-        void this.scanLocalFiles();
-      }
-    });
     this.addRibbonIcon("sparkles", "Omni Collector", () => {
       void this.activateView();
-      this.engine.startEngine("query").catch((err) => new import_obsidian10.Notice(`Omni Collector: ${err.message}`));
+      this.engine.startEngine("query").catch((err) => new import_obsidian6.Notice(`Omni Collector: ${err.message}`));
     });
   }
   async activateView() {
@@ -6368,7 +5843,6 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     if (leaf) workspace.setActiveLeaf(leaf);
   }
   onunload() {
-    this.autoScanTimer = null;
     if (this.syncTimer !== null) {
       window.clearInterval(this.syncTimer);
       this.syncTimer = null;
@@ -6381,45 +5855,10 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
   async updateRule(key, value) {
     try {
       await this.engine.updateRule(key, value);
-      new import_obsidian10.Notice(`\u5DF2\u4FDD\u5B58\uFF1A${key}`);
+      new import_obsidian6.Notice(`\u5DF2\u4FDD\u5B58\uFF1A${key}`);
     } catch (err) {
-      new import_obsidian10.Notice(`\u89C4\u5219\u66F4\u65B0\u5931\u8D25\uFF1A${err.message}`);
+      new import_obsidian6.Notice(`\u89C4\u5219\u66F4\u65B0\u5931\u8D25\uFF1A${err.message}`);
     }
-  }
-  /** 自动扫描定时器（设置变更后重载）。 */
-  reloadAutoScan() {
-    if (this.autoScanTimer !== null) {
-      window.clearInterval(this.autoScanTimer);
-      this.autoScanTimer = null;
-    }
-    if (this.pluginSettings.localAutoScan && this.pluginSettings.localFolders.length > 0) {
-      this.autoScanTimer = window.setInterval(() => {
-        void this.scanAllLocalFolders(true);
-      }, Math.max(1, this.pluginSettings.localAutoScanMinutes) * 6e4);
-    }
-  }
-  /** 扫描全部已配置目录。 */
-  async scanAllLocalFolders(silent = false) {
-    if (this.pluginSettings.localFolders.length === 0) {
-      if (!silent) new import_obsidian10.Notice("\u5C1A\u672A\u52A0\u5165\u672C\u5730\u76EE\u5F55\uFF08\u8BF7\u5230\u8BBE\u7F6E\u6DFB\u52A0\uFF09");
-      return;
-    }
-    if (!silent) new import_obsidian10.Notice("\u6B63\u5728\u626B\u63CF\u672C\u5730\u76EE\u5F55\u2026");
-    let scanned = 0;
-    let indexed = 0;
-    let failed = 0;
-    for (const folder of this.pluginSettings.localFolders) {
-      try {
-        const res = await this.engine.scanFolder(folder);
-        const report = res.payload?.report ?? {};
-        scanned += report.scanned ?? 0;
-        indexed += report.indexed ?? 0;
-        failed += (report.errors ?? []).length;
-      } catch {
-        failed += 1;
-      }
-    }
-    if (!silent) new import_obsidian10.Notice(`\u626B\u63CF\u5B8C\u6210\uFF1A${scanned} \u4E2A\u6587\u4EF6\uFF0C\u7D22\u5F15 ${indexed} \u4E2A${failed > 0 ? `\uFF0C${failed} \u4E2A\u5931\u8D25` : ""}`);
   }
   /** 封面本地缓存：首次下载到 vault/.covers，之后走本地路径。 */
   async ensureCover(url) {
@@ -6438,7 +5877,7 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
       return f ? vault.getResourcePath(f) : url;
     }
     try {
-      const res = await (0, import_obsidian10.requestUrl)({ url, method: "GET" });
+      const res = await (0, import_obsidian6.requestUrl)({ url, method: "GET" });
       if (res.status >= 200 && res.status < 300) {
         await vault.adapter.writeBinary(filePath, res.arrayBuffer);
         const f = vault.getAbstractFileByPath(filePath);
@@ -6456,27 +5895,24 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     return {
       openCollectionList: (platform) => this.openCollectionList(platform),
       openCollectionDetail: (id) => this.openCollectionDetail(id),
-      openAiReview: () => this.openAiReviewView(),
       openTagTopic: () => this.openTagTopicView(),
-      openManualAI: () => this.openManualAIPicker(),
-      openManualAIBatch: () => this.openManualAIBatchPicker(),
       openSettings: () => this.openSettingsTab(),
       startEngine: async () => {
         await this.engine.startEngine("query");
-        new import_obsidian10.Notice("Engine \u5DF2\u542F\u52A8");
+        new import_obsidian6.Notice("Engine \u5DF2\u542F\u52A8");
       },
       stopEngine: async () => {
         await this.engine.stopEngine("plugin");
-        new import_obsidian10.Notice("Engine \u5DF2\u505C\u6B62");
+        new import_obsidian6.Notice("Engine \u5DF2\u505C\u6B62");
       },
       syncAll: () => this.syncAllAndRender(),
       syncPlatform: async (platform) => {
         const res = await this.engine.syncPlatform(platform, this.pluginSettings.initialSyncMode);
         const report = res.payload?.report ?? {};
         if (report.status === "success") {
-          new import_obsidian10.Notice(`Omni Collector: ${platform} \u6293\u53D6 ${report.itemsFetched ?? 0} \u6761\uFF08+${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0\uFF09`);
+          new import_obsidian6.Notice(`Omni Collector: ${platform} \u6293\u53D6 ${report.itemsFetched ?? 0} \u6761\uFF08+${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0\uFF09`);
         } else {
-          new import_obsidian10.Notice(`Omni Collector: ${platform} \u540C\u6B65\u5931\u8D25 ${String(res.payload?.message ?? "")}`);
+          new import_obsidian6.Notice(`Omni Collector: ${platform} \u540C\u6B65\u5931\u8D25 ${String(res.payload?.message ?? "")}`);
         }
       },
       deepSyncPlatform: (platform) => this.deepSyncPlatform(platform),
@@ -6485,9 +5921,8 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
       runGroupRecognition: async () => {
         const res = await this.engine.runAutoGroup();
         const candidates = res.payload?.candidates ?? [];
-        new import_obsidian10.Notice(`\u5206\u7EC4\u8BC6\u522B\u5B8C\u6210\uFF1A\u53D1\u73B0 ${candidates.length} \u4E2A\u5019\u9009\uFF08\u8BF7\u5230 AI \u5EFA\u8BAE\u5BA1\u6838\u786E\u8BA4\uFF09`);
-      },
-      scanLocalFiles: () => this.scanLocalFiles()
+        new import_obsidian6.Notice(`\u5206\u7EC4\u8BC6\u522B\u5B8C\u6210\uFF1A\u53D1\u73B0 ${candidates.length} \u4E2A\u5019\u9009\uFF08\u8BF7\u5230 Tag/Topic \u7BA1\u7406\u786E\u8BA4\uFF09`);
+      }
     };
   }
   updateEngineNodeBin() {
@@ -6518,7 +5953,7 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         const frequency = this.pluginSettings.syncFrequency[s.platform] ?? "daily";
         const lastAuto = this.pluginSettings.lastAutoSyncAt[s.platform] ?? null;
         if (dailyCapReached(s.todaySyncCount, this.pluginSettings.dailySyncCapPerPlatform)) continue;
-        if (!isSyncDue({ frequency, lastRunAt: lastAuto, randomWindowMinutes: this.pluginSettings.syncRandomWindowMinutes })) {
+        if (!isSyncDue({ frequency, lastRunAt: lastAuto, randomWindowMinutes: this.pluginSettings.syncRandomWindowMinutes, timeOfDay: this.pluginSettings.autoSyncTime })) {
           continue;
         }
         this.pluginSettings.lastAutoSyncAt = {
@@ -6538,21 +5973,21 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     const res = await this.engine.syncPlatform(platform, "full", depth);
     const report = res.payload?.report ?? {};
     if (report.status === "success") {
-      new import_obsidian10.Notice(`\u6DF1\u5EA6\u540C\u6B65\u5B8C\u6210\uFF1A${platform} +${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0`);
+      new import_obsidian6.Notice(`\u6DF1\u5EA6\u540C\u6B65\u5B8C\u6210\uFF1A${platform} +${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0`);
     } else {
-      new import_obsidian10.Notice(`\u6DF1\u5EA6\u540C\u6B65\u5931\u8D25\uFF1A${platform}`);
+      new import_obsidian6.Notice(`\u6DF1\u5EA6\u540C\u6B65\u5931\u8D25\uFF1A${platform}`);
     }
   }
   /** 评论批量更新（最近 N 天）。 */
   async refreshCommentsAll() {
-    new import_obsidian10.Notice("\u5F00\u59CB\u6279\u91CF\u5237\u65B0\u8BC4\u8BBA\u2026");
+    new import_obsidian6.Notice("\u5F00\u59CB\u6279\u91CF\u5237\u65B0\u8BC4\u8BBA\u2026");
     try {
       const res = await this.engine.refreshComments(void 0, this.pluginSettings.commentBatchUpdateDays);
       const reports = res.payload?.reports ?? [];
       const total = reports.reduce((acc, r) => acc + r.refreshed, 0);
-      new import_obsidian10.Notice(`\u8BC4\u8BBA\u5237\u65B0\u5B8C\u6210\uFF1A${total} \u6761\u66F4\u65B0\uFF08${reports.map((r) => `${r.platform} ${r.refreshed}`).join(" / ")}\uFF09`);
+      new import_obsidian6.Notice(`\u8BC4\u8BBA\u5237\u65B0\u5B8C\u6210\uFF1A${total} \u6761\u66F4\u65B0\uFF08${reports.map((r) => `${r.platform} ${r.refreshed}`).join(" / ")}\uFF09`);
     } catch (err) {
-      new import_obsidian10.Notice(`\u8BC4\u8BBA\u5237\u65B0\u5931\u8D25\uFF1A${err.message}`);
+      new import_obsidian6.Notice(`\u8BC4\u8BBA\u5237\u65B0\u5931\u8D25\uFF1A${err.message}`);
     }
   }
   updateEngineAutoStart() {
@@ -6569,8 +6004,8 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
   }
   /** 同步全部平台，完成后生成 Markdown 并提示。 */
   async syncAllAndRender() {
-    const platforms = ["bilibili", "youtube", "xiaohongshu", "makerworld", "xiaoheihe"];
-    new import_obsidian10.Notice("Omni Collector: \u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026");
+    const platforms = ["bilibili", "youtube", "zhihu", "x"];
+    new import_obsidian6.Notice("Omni Collector: \u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026");
     let ok = 0;
     let fetched = 0;
     let added = 0;
@@ -6589,7 +6024,7 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
       }
     }
     await this.generateCollectionMarkdown();
-    new import_obsidian10.Notice(`Omni Collector: \u540C\u6B65\u5B8C\u6210 ${ok}/${platforms.length} \u5E73\u53F0\uFF0C\u5171\u6293\u53D6 ${fetched} \u6761\uFF08+${added} \u65B0\u589E / ${updated} \u66F4\u65B0\uFF09`);
+    new import_obsidian6.Notice(`Omni Collector: \u540C\u6B65\u5B8C\u6210 ${ok}/${platforms.length} \u5E73\u53F0\uFF0C\u5171\u6293\u53D6 ${fetched} \u6761\uFF08+${added} \u65B0\u589E / ${updated} \u66F4\u65B0\uFF09`);
   }
   /** 查询收藏并写入 vault：Omni Collector/{平台}/{标题}.md（仅更新系统区）。 */
   async generateCollectionMarkdown() {
@@ -6669,7 +6104,7 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
         }
       }
     }
-    new import_obsidian10.Notice(`Omni Collector: \u5DF2\u751F\u6210/\u66F4\u65B0 ${count} \u4E2A Markdown`);
+    new import_obsidian6.Notice(`Omni Collector: \u5DF2\u751F\u6210/\u66F4\u65B0 ${count} \u4E2A Markdown`);
   }
   async openCollectionList(platform) {
     const { workspace } = this.app;
@@ -6693,15 +6128,6 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     }
     if (leaf) workspace.setActiveLeaf(leaf);
   }
-  async openAiReviewView() {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_OMNI_AI)[0] ?? null;
-    if (!leaf) {
-      leaf = workspace.getRightLeaf(false);
-      if (leaf) await leaf.setViewState({ type: VIEW_TYPE_OMNI_AI, active: true });
-    }
-    if (leaf) workspace.setActiveLeaf(leaf);
-  }
   async openTagTopicView() {
     const { workspace } = this.app;
     let leaf = workspace.getLeavesOfType(VIEW_TYPE_OMNI_TAGS)[0] ?? null;
@@ -6711,132 +6137,9 @@ var OmniCollectorPlugin = class extends import_obsidian10.Plugin {
     }
     if (leaf) workspace.setActiveLeaf(leaf);
   }
-  /** Manual AI 全局入口：先选收藏，再打开模板（PRD 19.3）。 */
-  async openManualAIPicker() {
-    const collections = await this.engine.listCollections().catch(() => []);
-    const modal = new import_obsidian10.Modal(this.app);
-    modal.titleEl.setText("\u9009\u62E9\u6536\u85CF\uFF08Manual AI \u6A21\u677F\uFF09");
-    const search = modal.contentEl.createEl("input", {
-      type: "text",
-      placeholder: "\u641C\u7D22\u6807\u9898\u2026",
-      attr: { style: "width:100%;margin-bottom:8px;" }
-    });
-    const list = modal.contentEl.createEl("div", {
-      cls: "omni-list",
-      attr: { style: "max-height:60vh;overflow:auto;" }
-    });
-    const render = (keyword = "") => {
-      list.empty();
-      const filtered = collections.filter((c) => (c.title || "").toLowerCase().includes(keyword.toLowerCase())).slice(0, 100);
-      for (const c of filtered) {
-        const row = list.createEl("div", { cls: "omni-row" });
-        row.createEl("span", { text: c.title || c.id, cls: "omni-title" });
-        row.addEventListener("click", () => {
-          modal.close();
-          openManualAIModal(this.app, c, {
-            submit: (id, reply) => this.engine.submitManualAI(id, reply).then(() => void 0)
-          });
-        });
-      }
-      if (filtered.length === 0) {
-        list.createEl("div", { text: "\u65E0\u5339\u914D\u6536\u85CF", cls: "omni-empty" });
-      }
-    };
-    search.addEventListener("input", () => render(search.value));
-    render();
-    modal.open();
-  }
-  /** Manual AI 批量入口：按平台/时间段打包 N 条收藏，一次交给网页 AI。 */
-  async openManualAIBatchPicker() {
-    const collections = await this.engine.listCollections().catch(() => []);
-    const modal = new import_obsidian10.Modal(this.app);
-    modal.titleEl.setText("Manual AI \u6279\u91CF\u6253\u5305");
-    const filters = modal.contentEl.createEl("div", { cls: "omni-batch-filter" });
-    const platformSel = filters.createEl("select");
-    platformSel.createEl("option", { text: "\u5168\u90E8\u5E73\u53F0", attr: { value: "" } });
-    for (const p of ["bilibili", "youtube", "xiaohongshu", "makerworld", "xiaoheihe"]) {
-      platformSel.createEl("option", { text: p, attr: { value: p } });
-    }
-    const daysSel = filters.createEl("select");
-    for (const [label, days] of [
-      ["\u6700\u8FD1 7 \u5929", 7],
-      ["\u6700\u8FD1 30 \u5929", 30],
-      ["\u6700\u8FD1 90 \u5929", 90],
-      ["\u5168\u90E8\u65F6\u95F4", 0]
-    ]) {
-      daysSel.createEl("option", { text: String(label), attr: { value: String(days) } });
-    }
-    daysSel.value = "30";
-    const maxInput = filters.createEl("input", {
-      type: "number",
-      attr: { value: "50", min: "1", max: "100", style: "width:70px;" }
-    });
-    const preview = modal.contentEl.createEl("div", { cls: "omni-total" });
-    const runBtn = modal.contentEl.createEl("button", {
-      text: "\u751F\u6210\u6279\u91CF\u6A21\u677F",
-      cls: "omni-btn omni-btn-primary"
-    });
-    const pick = () => {
-      const platform = platformSel.value;
-      const days = Number(daysSel.value);
-      const max = Math.max(1, Math.min(100, Number(maxInput.value) || 50));
-      const cutoff = days > 0 ? Date.now() - days * 24 * 3600 * 1e3 : 0;
-      const filtered = collections.filter((c) => (!platform || c.platform === platform) && (cutoff === 0 || new Date(c.collectedAt).getTime() >= cutoff)).sort((a, b) => {
-        const rank = (x) => x.organizeStatus === "unorganized" ? 0 : x.organizeStatus === "viewed" ? 1 : 2;
-        return rank(a) - rank(b) || new Date(b.collectedAt).getTime() - new Date(a.collectedAt).getTime();
-      }).slice(0, max);
-      preview.setText(`\u5F53\u524D\u9009\u4E2D ${filtered.length} \u6761\uFF08\u4F18\u5148\u672A\u6574\u7406\uFF09`);
-      return filtered;
-    };
-    const refresh = () => void pick();
-    platformSel.addEventListener("change", refresh);
-    daysSel.addEventListener("change", refresh);
-    maxInput.addEventListener("input", refresh);
-    runBtn.addEventListener("click", () => {
-      const items = pick();
-      if (items.length === 0) {
-        new import_obsidian10.Notice("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u6536\u85CF");
-        return;
-      }
-      modal.close();
-      openManualAIBatchModal(this.app, items, {
-        submit: (ids, reply) => this.engine.submitManualAIBatch(ids, reply).then((res) => Number(res.payload?.saved ?? 0))
-      });
-    });
-    refresh();
-    modal.open();
-  }
   async openSettingsTab() {
     const app = this.app;
     app.setting.open();
     app.setting.openTabById("omni-collector");
-  }
-  /** 扫描库内文件夹（默认 Omni Collector），把 Markdown/PDF 关联到收藏。 */
-  async scanLocalFiles() {
-    const vaultPath = this.app.vault.adapter.getBasePath();
-    const defaultFolder = `${vaultPath}/Omni Collector`;
-    const modal = new import_obsidian10.Modal(this.app);
-    modal.titleEl.setText("\u626B\u63CF\u672C\u5730\u6587\u4EF6");
-    let folder = defaultFolder;
-    new import_obsidian10.Setting(modal.contentEl).setName("\u6587\u4EF6\u5939\u8DEF\u5F84").setDesc("\u626B\u63CF\u8BE5\u76EE\u5F55\u4E0B\u7684 .md / .pdf\uFF0C\u5E76\u6309 Markdown \u7CFB\u7EDF\u533A URL \u5173\u8054\u6536\u85CF\u3002").addText(
-      (text) => text.setValue(defaultFolder).onChange((v) => {
-        folder = v;
-      })
-    );
-    modal.contentEl.createEl("button", { text: "\u5F00\u59CB\u626B\u63CF", cls: "omni-btn omni-btn-primary" }).addEventListener("click", () => {
-      modal.close();
-      void (async () => {
-        new import_obsidian10.Notice("\u6B63\u5728\u626B\u63CF\u672C\u5730\u6587\u4EF6\u2026");
-        try {
-          const res = await this.engine.scanFolder(folder);
-          const report = res.payload?.report ?? {};
-          const errors = report.errors ?? [];
-          new import_obsidian10.Notice(`\u626B\u63CF\u5B8C\u6210\uFF1A\u5171 ${report.scanned ?? 0} \u4E2A\u6587\u4EF6\uFF0C\u7D22\u5F15 ${report.indexed ?? 0} \u4E2A${errors.length > 0 ? `\uFF0C${errors.length} \u4E2A\u5931\u8D25` : ""}`);
-        } catch (err) {
-          new import_obsidian10.Notice(`\u626B\u63CF\u5931\u8D25\uFF1A${err.message}`);
-        }
-      })();
-    });
-    modal.open();
   }
 };
