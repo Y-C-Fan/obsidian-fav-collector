@@ -7,7 +7,10 @@ export class YoutubeError extends Error {}
 
 function defaultRun(cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
-    execFile(cmd, args, { timeout: 300000, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+    // yt-dlp.exe（PyInstaller）在管道输出时跟随系统 locale（GBK），必须强制 UTF-8，
+    // 否则中文标题变 ��（2026-09-11 实锤）。
+    const env = { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" };
+    execFile(cmd, args, { timeout: 300000, maxBuffer: 64 * 1024 * 1024, env }, (err, stdout, stderr) => {
       if (err) {
         const msg = `${stderr || err.message}`.slice(0, 300);
         reject(new YoutubeError(`yt-dlp 失败: ${msg}`));

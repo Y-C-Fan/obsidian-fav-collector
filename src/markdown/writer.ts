@@ -87,14 +87,16 @@ export interface CardData {
 export function cardFromNote(path: string, md: string): CardData | null {
   const fm = parseFrontmatter(md);
   if (!fm.platform || !fm.url) return null;
-  const titleM = md.match(/^# (.+)$/m);
+  // 旧版笔记第一个 H1 是系统区标记行，跳过它取真正的标题
+  const headings = [...md.matchAll(/^# (.+)$/gm)].map((m) => m[1]).filter((h) => h !== "Fav Collector System Zone");
+  const title = (headings[0] ?? fm.url).replace(/\\#/g, "#");
   let description: string | undefined;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || undefined;
   return {
     path,
     platform: fm.platform as Platform,
-    title: (titleM?.[1] ?? fm.url).replace(/\\#/g, "#"),
+    title,
     url: fm.url,
     author: fm.author,
     publishedAt: fm.published_at,

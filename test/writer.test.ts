@@ -38,4 +38,9 @@ describe("writer", () => {
   it("cardFromNote rejects files without platform/url", () => {
     expect(cardFromNote("a.md", "# hello\n")).toBeNull();
   });
+
+  it("cardFromNote skips legacy system-zone marker heading", () => {
+    const md = '---\nplatform: "youtube"\nurl: "https://u"\n---\n# Fav Collector System Zone\nxxx\n# 真标题\n';
+    expect(cardFromNote("a.md", md)?.title).toBe("真标题");
+  });
 });

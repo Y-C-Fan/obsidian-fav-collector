@@ -153,14 +153,15 @@ function parseFrontmatter(md) {
 function cardFromNote(path, md) {
   const fm = parseFrontmatter(md);
   if (!fm.platform || !fm.url) return null;
-  const titleM = md.match(/^# (.+)$/m);
+  const headings = [...md.matchAll(/^# (.+)$/gm)].map((m) => m[1]).filter((h) => h !== "Fav Collector System Zone");
+  const title = (headings[0] ?? fm.url).replace(/\\#/g, "#");
   let description;
   const introM = md.match(/^## 简介\s*\n([\s\S]*?)(?=^## |^# |<!--|\Z)/m);
   if (introM) description = introM[1].trim().slice(0, 200) || void 0;
   return {
     path,
     platform: fm.platform,
-    title: (titleM?.[1] ?? fm.url).replace(/\\#/g, "#"),
+    title,
     url: fm.url,
     author: fm.author,
     publishedAt: fm.published_at,
@@ -449,7 +450,8 @@ var YoutubeError = class extends Error {
 };
 function defaultRun2(cmd, args) {
   return new Promise((resolve, reject) => {
-    (0, import_node_child_process2.execFile)(cmd, args, { timeout: 3e5, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+    const env = { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONUTF8: "1" };
+    (0, import_node_child_process2.execFile)(cmd, args, { timeout: 3e5, maxBuffer: 64 * 1024 * 1024, env }, (err, stdout, stderr) => {
       if (err) {
         const msg = `${stderr || err.message}`.slice(0, 300);
         reject(new YoutubeError(`yt-dlp \u5931\u8D25: ${msg}`));
