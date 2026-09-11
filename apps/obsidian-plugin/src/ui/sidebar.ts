@@ -47,7 +47,7 @@ export class OmniSidebarView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Omni Collector";
+    return "Fav Collector";
   }
 
   getIcon(): string {
@@ -59,7 +59,7 @@ export class OmniSidebarView extends ItemView {
     container.empty();
     container.addClass("omni-panel");
 
-    container.createEl("div", { text: "Omni Collector", cls: "omni-panel-title" });
+    container.createEl("div", { text: "Fav Collector", cls: "omni-panel-title" });
 
     // 引擎状态
     const statusRow = container.createEl("div", { cls: "omni-status-row" });
@@ -191,7 +191,7 @@ export class OmniSidebarView extends ItemView {
     try {
       await fn();
     } catch (err) {
-      new Notice(`Omni Collector: ${(err as Error).message}`);
+      new Notice(`Fav Collector: ${(err as Error).message}`);
       this.setStatus(false);
     } finally {
       this.busy = false;

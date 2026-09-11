@@ -48,7 +48,7 @@ export class OmniCollectionDetailView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Omni Collector 内容预览";
+    return "Fav Collector 内容预览";
   }
 
   getState(): Record<string, unknown> {

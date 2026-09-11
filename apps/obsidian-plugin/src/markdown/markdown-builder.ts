@@ -47,7 +47,7 @@ export class MarkdownBuilder {
     return [
       frontmatter,
       '---',
-      '# Omni Collector System Zone',
+      '# Fav Collector System Zone',
       SYSTEM_START,
       system,
       SYSTEM_END,
@@ -132,10 +132,10 @@ export class MarkdownBuilder {
 
   private buildGraphLinks(dto: CollectionDTO): string {
     const topicLinks = (dto.topics ?? [])
-      .map((t) => `- [[Omni Collector/Topics/${sanitizeFilename(t)}]]`)
+      .map((t) => `- [[Fav Collector/Topics/${sanitizeFilename(t)}]]`)
       .join("\n");
     const tagLinks = (dto.tags ?? [])
-      .map((t) => `- [[Omni Collector/Tags/${sanitizeFilename(t)}]]`)
+      .map((t) => `- [[Fav Collector/Tags/${sanitizeFilename(t)}]]`)
       .join("\n");
     return [topicLinks, tagLinks].filter(Boolean).join("\n");
   }
@@ -154,7 +154,7 @@ export class MarkdownBuilder {
       "",
       `# ${name}`,
       "",
-      "> 主题聚合页（Omni Collector 自动生成，修改会被覆盖）",
+      "> 主题聚合页（Fav Collector 自动生成，修改会被覆盖）",
       "",
       "## 收藏",
       "",
@@ -176,7 +176,7 @@ export class MarkdownBuilder {
       "",
       `# ${name}`,
       "",
-      "> 标签聚合页（Omni Collector 自动生成，修改会被覆盖）",
+      "> 标签聚合页（Fav Collector 自动生成，修改会被覆盖）",
       "",
       "## 收藏",
       "",

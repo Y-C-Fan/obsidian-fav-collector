@@ -1,6 +1,6 @@
-# Omni Collector
+# Fav Collector
 
-Omni Collector is a desktop-only Obsidian plugin that syncs your favorites from Bilibili, YouTube (Watch Later), Zhihu and X (Bookmarks) into your vault: lightweight catalog sync on a daily schedule, plus on-demand detail expansion (`expand`) designed to be called by coding agents (see `SKILL.md`). It supports Tag / Topic organization with a Tag Atlas, Topic hub notes linked into the Obsidian graph, and an optional local sync engine (Node.js).
+Fav Collector is a desktop-only Obsidian plugin that syncs your favorites from Bilibili, YouTube (Watch Later), Zhihu and X (Bookmarks) into your vault: lightweight catalog sync on a daily schedule, plus on-demand detail expansion (`expand`) designed to be called by coding agents (see `SKILL.md`). It supports Tag / Topic organization with a Tag Atlas, Topic hub notes linked into the Obsidian graph, and an optional local sync engine (Node.js).
 
 **Highlights**
 
@@ -76,14 +76,14 @@ Cookie 只保存在本地数据目录（AES-256-GCM 加密，`data/cookies/*.enc
 1. Install the **Cookie-Editor** browser extension (search it in the Chrome or Edge extension store).
 2. Log in to the platform in your browser (e.g. https://www.bilibili.com or https://www.xiaohongshu.com).
 3. On the logged-in page, open Cookie-Editor → **Export** → **Copy as JSON**.
-4. Open Obsidian → Omni Collector settings → **Platform Cookie** → pick the platform → paste the JSON → click **Import**.
-5. Run the sync from the Omni Collector sidebar.
+4. Open Obsidian → Fav Collector settings → **Platform Cookie** → pick the platform → paste the JSON → click **Import**.
+5. Run the sync from the Fav Collector sidebar.
 
 > Both Cookie-Editor JSON arrays and `k=v; k2=v2` header strings are accepted. Cookies are encrypted and stored only in your local data directory (`data/cookies/*.enc`); they are never uploaded.
 
 > [!IMPORTANT] 中文版
 > 插件无法代替你登录。请先在浏览器里登录平台，再用 **Cookie-Editor** 扩展导出 Cookie 后导入插件：
-> ① 安装浏览器扩展 Cookie-Editor（Chrome / Edge 商店搜索）→ ② 浏览器登录平台（如 bilibili.com / xiaohongshu.com）→ ③ 在登录页点 Cookie-Editor 图标 → Export → Copy as JSON → ④ Obsidian → Omni Collector 设置 → 「平台 Cookie」→ 选择平台 → 粘贴 JSON → 点「导入」→ ⑤ 回侧边栏同步。
+> ① 安装浏览器扩展 Cookie-Editor（Chrome / Edge 商店搜索）→ ② 浏览器登录平台（如 bilibili.com / xiaohongshu.com）→ ③ 在登录页点 Cookie-Editor 图标 → Export → Copy as JSON → ④ Obsidian → Fav Collector 设置 → 「平台 Cookie」→ 选择平台 → 粘贴 JSON → 点「导入」→ ⑤ 回侧边栏同步。
 > 支持 JSON 数组和 `SESSDATA=xxx; bili_jct=yyy` 字符串格式；Cookie 只加密保存在本地 `data/cookies/*.enc`，绝不上传。
 
 ### 通过 BRAT（推荐，正式上架前）
@@ -95,7 +95,7 @@ Cookie 只保存在本地数据目录（AES-256-GCM 加密，`data/cookies/*.enc
 
 1. 从 GitHub Releases 下载 `main.js` / `manifest.json` / `styles.css` 三个文件
 2. 放入 `<你的库>/.obsidian/plugins/omni-collector/`（目录不存在则新建）
-3. Obsidian 设置 → 第三方插件 → 启用 Omni Collector
+3. Obsidian 设置 → 第三方插件 → 启用 Fav Collector
 4. 在插件设置中填写数据目录 / Node.js 路径 / Engine 路径
 
 ## 开发

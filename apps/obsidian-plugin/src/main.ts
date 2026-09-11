@@ -129,11 +129,11 @@ export default class OmniCollectorPlugin extends Plugin {
         void this.openCollectionList();
       },
     });
-    this.addRibbonIcon("sparkles", "Omni Collector", () => {
+    this.addRibbonIcon("sparkles", "Fav Collector", () => {
       void this.activateView();
       this.engine
         .startEngine("query")
-        .catch((err) => new Notice(`Omni Collector: ${(err as Error).message}`));
+        .catch((err) => new Notice(`Fav Collector: ${(err as Error).message}`));
     });
   }
 
@@ -177,7 +177,7 @@ export default class OmniCollectorPlugin extends Plugin {
   /** 封面本地缓存：首次下载到 vault/.covers，之后走本地路径。 */
   async ensureCover(url: string): Promise<string | null> {
     if (!url) return null;
-    const coverDir = "Omni Collector/.covers";
+    const coverDir = "Fav Collector/.covers";
     const vault = this.app.vault;
     if (!(await vault.adapter.exists(coverDir))) {
       await vault.createFolder(coverDir).catch(() => {});
@@ -226,9 +226,9 @@ export default class OmniCollectorPlugin extends Plugin {
         const res = await this.engine.syncPlatform(platform, this.pluginSettings.initialSyncMode);
         const report = (res.payload?.report ?? {}) as { status?: string; itemsAdded?: number; itemsUpdated?: number; itemsFetched?: number };
         if (report.status === "success") {
-          new Notice(`Omni Collector: ${platform} 抓取 ${report.itemsFetched ?? 0} 条（+${report.itemsAdded ?? 0} 新增 / ${report.itemsUpdated ?? 0} 更新）`);
+          new Notice(`Fav Collector: ${platform} 抓取 ${report.itemsFetched ?? 0} 条（+${report.itemsAdded ?? 0} 新增 / ${report.itemsUpdated ?? 0} 更新）`);
         } else {
-          new Notice(`Omni Collector: ${platform} 同步失败 ${String(res.payload?.message ?? "")}`);
+          new Notice(`Fav Collector: ${platform} 同步失败 ${String(res.payload?.message ?? "")}`);
         }
       },
       deepSyncPlatform: (platform) => this.deepSyncPlatform(platform),
@@ -328,7 +328,7 @@ export default class OmniCollectorPlugin extends Plugin {
   /** 同步全部平台，完成后生成 Markdown 并提示。 */
   async syncAllAndRender(): Promise<void> {
     const platforms = ["bilibili", "youtube", "zhihu", "x"];
-    new Notice("Omni Collector: 开始同步全部平台…");
+    new Notice("Fav Collector: 开始同步全部平台…");
     let ok = 0;
     let fetched = 0;
     let added = 0;
@@ -348,13 +348,13 @@ export default class OmniCollectorPlugin extends Plugin {
       }
     }
     await this.generateCollectionMarkdown();
-    new Notice(`Omni Collector: 同步完成 ${ok}/${platforms.length} 平台，共抓取 ${fetched} 条（+${added} 新增 / ${updated} 更新）`);
+    new Notice(`Fav Collector: 同步完成 ${ok}/${platforms.length} 平台，共抓取 ${fetched} 条（+${added} 新增 / ${updated} 更新）`);
   }
 
-  /** 查询收藏并写入 vault：Omni Collector/{平台}/{标题}.md（仅更新系统区）。 */
+  /** 查询收藏并写入 vault：Fav Collector/{平台}/{标题}.md（仅更新系统区）。 */
   async generateCollectionMarkdown(): Promise<void> {
     const collections = await this.engine.listCollections();
-    const folder = "Omni Collector";
+    const folder = "Fav Collector";
     const vault = this.app.vault;
     if (!(await vault.adapter.exists(folder))) {
       await vault.createFolder(folder);
@@ -396,7 +396,7 @@ export default class OmniCollectorPlugin extends Plugin {
           .map((id) => {
             const dto = byId.get(id);
             if (!dto) return "";
-            return `Omni Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
+            return `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
           })
           .filter(Boolean);
         const hubPath = `${topicDir}/${sanitizeFilename(topic.name)}.md`;
@@ -422,7 +422,7 @@ export default class OmniCollectorPlugin extends Plugin {
       for (const tag of tags) {
         const links = collections
           .filter((c) => (c.tags ?? []).includes(tag.name))
-          .map((c) => `Omni Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
+          .map((c) => `Fav Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
         const hubPath = `${tagDir}/${sanitizeFilename(tag.name)}.md`;
         try {
           const content = builder.buildTagHub(tag.name, links);
@@ -436,7 +436,7 @@ export default class OmniCollectorPlugin extends Plugin {
         }
       }
     }
-    new Notice(`Omni Collector: 已生成/更新 ${count} 个 Markdown`);
+    new Notice(`Fav Collector: 已生成/更新 ${count} 个 Markdown`);
   }
 
   private async openCollectionList(platform?: string): Promise<void> {

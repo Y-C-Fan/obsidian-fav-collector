@@ -3954,6 +3954,7 @@ var OmniSettingTab = class extends import_obsidian.PluginSettingTab {
 
 // src/comm/socket-client.ts
 var import_node_net = __toESM(require("node:net"), 1);
+var import_node_fs = __toESM(require("node:fs"), 1);
 var import_node_child_process = require("node:child_process");
 var import_node_crypto = require("node:crypto");
 
@@ -4110,7 +4111,7 @@ var EngineClient = class {
     const token = new URL(this.opts.wsUrl).searchParams.get("token") ?? "";
     this.wsUrl = `ws://127.0.0.1:${wsPort}/?token=${token}`;
     this.proc = this.opts.spawnEngine?.() ?? (0, import_node_child_process.spawn)(
-      this.opts.nodeBin ?? process.execPath,
+      resolveNodeBin(this.opts.nodeBin),
       [
         this.opts.engineScript ?? "",
         "--data-dir",
@@ -4560,6 +4561,26 @@ var EngineClient = class {
     return pipePath.includes("\\\\.\\pipe\\") ? pipePath.replace("\\\\.\\pipe\\", "") : pipePath;
   }
 };
+function resolveNodeBin(configured) {
+  const trim = (configured ?? "").trim();
+  if (trim) {
+    if (import_node_fs.default.existsSync(trim)) return trim;
+    throw new Error(
+      `\u914D\u7F6E\u7684 Node.js \u8DEF\u5F84\u4E0D\u5B58\u5728\uFF1A${trim}\uFF08\u8BF7\u5728\u63D2\u4EF6\u8BBE\u7F6E\u4E2D\u66F4\u6B63\uFF09`
+    );
+  }
+  try {
+    const cmd = process.platform === "win32" ? "where.exe" : "which";
+    const out = (0, import_node_child_process.execFileSync)(cmd, ["node"], { encoding: "utf8", windowsHide: true });
+    const first = out.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+    if (first && import_node_fs.default.existsSync(first)) return first;
+  } catch {
+  }
+  if (/node/i.test(process.execPath) && import_node_fs.default.existsSync(process.execPath)) return process.execPath;
+  throw new Error(
+    "\u627E\u4E0D\u5230 Node.js\uFF1A\u8BF7\u5728\u63D2\u4EF6\u8BBE\u7F6E\u300CNode.js \u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84\u300D\u4E2D\u586B\u5199 node.exe \u5B8C\u6574\u8DEF\u5F84"
+  );
+}
 
 // src/ui/sidebar.ts
 var import_obsidian2 = require("obsidian");
@@ -4587,7 +4608,7 @@ var OmniSidebarView = class extends import_obsidian2.ItemView {
     return VIEW_TYPE_OMNI;
   }
   getDisplayText() {
-    return "Omni Collector";
+    return "Fav Collector";
   }
   getIcon() {
     return "sparkles";
@@ -4596,7 +4617,7 @@ var OmniSidebarView = class extends import_obsidian2.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("omni-panel");
-    container.createEl("div", { text: "Omni Collector", cls: "omni-panel-title" });
+    container.createEl("div", { text: "Fav Collector", cls: "omni-panel-title" });
     const statusRow = container.createEl("div", { cls: "omni-status-row" });
     this.dotEl = statusRow.createEl("span", { cls: "omni-dot omni-dot-unknown" });
     this.statusEl = statusRow.createEl("span", { text: "Engine: \u672A\u8FDE\u63A5", cls: "omni-status-text" });
@@ -4717,7 +4738,7 @@ var OmniSidebarView = class extends import_obsidian2.ItemView {
     try {
       await fn();
     } catch (err) {
-      new import_obsidian2.Notice(`Omni Collector: ${err.message}`);
+      new import_obsidian2.Notice(`Fav Collector: ${err.message}`);
       this.setStatus(false);
     } finally {
       this.busy = false;
@@ -5021,7 +5042,7 @@ var OmniCollectionListView = class extends import_obsidian4.ItemView {
     return VIEW_TYPE_OMNI_LIST;
   }
   getDisplayText() {
-    return "Omni Collector \u6536\u85CF";
+    return "Fav Collector \u6536\u85CF";
   }
   getState() {
     return { platform: this.platformFilter };
@@ -5037,7 +5058,7 @@ var OmniCollectionListView = class extends import_obsidian4.ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("omni-list-view");
-    container.createEl("div", { text: "Omni Collector \u6536\u85CF", cls: "omni-panel-title" });
+    container.createEl("div", { text: "Fav Collector \u6536\u85CF", cls: "omni-panel-title" });
     this.totalEl = container.createEl("div", { cls: "omni-total" });
     this.toolbarEl = container.createEl("div", { cls: "omni-toolbar" });
     this.batchBarEl = container.createEl("div", { cls: "omni-batch-bar" });
@@ -5342,7 +5363,7 @@ var OmniCollectionDetailView = class extends import_obsidian5.ItemView {
     return VIEW_TYPE_OMNI_DETAIL;
   }
   getDisplayText() {
-    return "Omni Collector \u5185\u5BB9\u9884\u89C8";
+    return "Fav Collector \u5185\u5BB9\u9884\u89C8";
   }
   getState() {
     return { collectionId: this.currentId };
@@ -5537,7 +5558,7 @@ var MarkdownBuilder = class {
     return [
       frontmatter,
       "---",
-      "# Omni Collector System Zone",
+      "# Fav Collector System Zone",
       SYSTEM_START,
       system,
       SYSTEM_END,
@@ -5622,8 +5643,8 @@ ${links}
     return out;
   }
   buildGraphLinks(dto) {
-    const topicLinks = (dto.topics ?? []).map((t) => `- [[Omni Collector/Topics/${sanitizeFilename(t)}]]`).join("\n");
-    const tagLinks = (dto.tags ?? []).map((t) => `- [[Omni Collector/Tags/${sanitizeFilename(t)}]]`).join("\n");
+    const topicLinks = (dto.topics ?? []).map((t) => `- [[Fav Collector/Topics/${sanitizeFilename(t)}]]`).join("\n");
+    const tagLinks = (dto.tags ?? []).map((t) => `- [[Fav Collector/Tags/${sanitizeFilename(t)}]]`).join("\n");
     return [topicLinks, tagLinks].filter(Boolean).join("\n");
   }
   /** Topic 聚合页（PRD 17 / 关系图谱联动）：wikilink 指向全部成员笔记。 */
@@ -5638,7 +5659,7 @@ ${links}
       "",
       `# ${name}`,
       "",
-      "> \u4E3B\u9898\u805A\u5408\u9875\uFF08Omni Collector \u81EA\u52A8\u751F\u6210\uFF0C\u4FEE\u6539\u4F1A\u88AB\u8986\u76D6\uFF09",
+      "> \u4E3B\u9898\u805A\u5408\u9875\uFF08Fav Collector \u81EA\u52A8\u751F\u6210\uFF0C\u4FEE\u6539\u4F1A\u88AB\u8986\u76D6\uFF09",
       "",
       "## \u6536\u85CF",
       "",
@@ -5657,7 +5678,7 @@ ${links}
       "",
       `# ${name}`,
       "",
-      "> \u6807\u7B7E\u805A\u5408\u9875\uFF08Omni Collector \u81EA\u52A8\u751F\u6210\uFF0C\u4FEE\u6539\u4F1A\u88AB\u8986\u76D6\uFF09",
+      "> \u6807\u7B7E\u805A\u5408\u9875\uFF08Fav Collector \u81EA\u52A8\u751F\u6210\uFF0C\u4FEE\u6539\u4F1A\u88AB\u8986\u76D6\uFF09",
       "",
       "## \u6536\u85CF",
       "",
@@ -5824,9 +5845,9 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
         void this.openCollectionList();
       }
     });
-    this.addRibbonIcon("sparkles", "Omni Collector", () => {
+    this.addRibbonIcon("sparkles", "Fav Collector", () => {
       void this.activateView();
-      this.engine.startEngine("query").catch((err) => new import_obsidian6.Notice(`Omni Collector: ${err.message}`));
+      this.engine.startEngine("query").catch((err) => new import_obsidian6.Notice(`Fav Collector: ${err.message}`));
     });
   }
   async activateView() {
@@ -5863,7 +5884,7 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
   /** 封面本地缓存：首次下载到 vault/.covers，之后走本地路径。 */
   async ensureCover(url) {
     if (!url) return null;
-    const coverDir = "Omni Collector/.covers";
+    const coverDir = "Fav Collector/.covers";
     const vault = this.app.vault;
     if (!await vault.adapter.exists(coverDir)) {
       await vault.createFolder(coverDir).catch(() => {
@@ -5910,9 +5931,9 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
         const res = await this.engine.syncPlatform(platform, this.pluginSettings.initialSyncMode);
         const report = res.payload?.report ?? {};
         if (report.status === "success") {
-          new import_obsidian6.Notice(`Omni Collector: ${platform} \u6293\u53D6 ${report.itemsFetched ?? 0} \u6761\uFF08+${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0\uFF09`);
+          new import_obsidian6.Notice(`Fav Collector: ${platform} \u6293\u53D6 ${report.itemsFetched ?? 0} \u6761\uFF08+${report.itemsAdded ?? 0} \u65B0\u589E / ${report.itemsUpdated ?? 0} \u66F4\u65B0\uFF09`);
         } else {
-          new import_obsidian6.Notice(`Omni Collector: ${platform} \u540C\u6B65\u5931\u8D25 ${String(res.payload?.message ?? "")}`);
+          new import_obsidian6.Notice(`Fav Collector: ${platform} \u540C\u6B65\u5931\u8D25 ${String(res.payload?.message ?? "")}`);
         }
       },
       deepSyncPlatform: (platform) => this.deepSyncPlatform(platform),
@@ -6005,7 +6026,7 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
   /** 同步全部平台，完成后生成 Markdown 并提示。 */
   async syncAllAndRender() {
     const platforms = ["bilibili", "youtube", "zhihu", "x"];
-    new import_obsidian6.Notice("Omni Collector: \u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026");
+    new import_obsidian6.Notice("Fav Collector: \u5F00\u59CB\u540C\u6B65\u5168\u90E8\u5E73\u53F0\u2026");
     let ok = 0;
     let fetched = 0;
     let added = 0;
@@ -6024,12 +6045,12 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
       }
     }
     await this.generateCollectionMarkdown();
-    new import_obsidian6.Notice(`Omni Collector: \u540C\u6B65\u5B8C\u6210 ${ok}/${platforms.length} \u5E73\u53F0\uFF0C\u5171\u6293\u53D6 ${fetched} \u6761\uFF08+${added} \u65B0\u589E / ${updated} \u66F4\u65B0\uFF09`);
+    new import_obsidian6.Notice(`Fav Collector: \u540C\u6B65\u5B8C\u6210 ${ok}/${platforms.length} \u5E73\u53F0\uFF0C\u5171\u6293\u53D6 ${fetched} \u6761\uFF08+${added} \u65B0\u589E / ${updated} \u66F4\u65B0\uFF09`);
   }
-  /** 查询收藏并写入 vault：Omni Collector/{平台}/{标题}.md（仅更新系统区）。 */
+  /** 查询收藏并写入 vault：Fav Collector/{平台}/{标题}.md（仅更新系统区）。 */
   async generateCollectionMarkdown() {
     const collections = await this.engine.listCollections();
-    const folder = "Omni Collector";
+    const folder = "Fav Collector";
     const vault = this.app.vault;
     if (!await vault.adapter.exists(folder)) {
       await vault.createFolder(folder);
@@ -6069,7 +6090,7 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
         const links = (topic.collection_ids ?? []).map((id) => {
           const dto = byId.get(id);
           if (!dto) return "";
-          return `Omni Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
+          return `Fav Collector/${dto.platform}/${sanitizeFilename(dto.title || dto.platformItemId)}`;
         }).filter(Boolean);
         const hubPath = `${topicDir}/${sanitizeFilename(topic.name)}.md`;
         try {
@@ -6091,7 +6112,7 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
         });
       }
       for (const tag of tags) {
-        const links = collections.filter((c) => (c.tags ?? []).includes(tag.name)).map((c) => `Omni Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
+        const links = collections.filter((c) => (c.tags ?? []).includes(tag.name)).map((c) => `Fav Collector/${c.platform}/${sanitizeFilename(c.title || c.platformItemId)}`);
         const hubPath = `${tagDir}/${sanitizeFilename(tag.name)}.md`;
         try {
           const content = builder.buildTagHub(tag.name, links);
@@ -6104,7 +6125,7 @@ var OmniCollectorPlugin = class extends import_obsidian6.Plugin {
         }
       }
     }
-    new import_obsidian6.Notice(`Omni Collector: \u5DF2\u751F\u6210/\u66F4\u65B0 ${count} \u4E2A Markdown`);
+    new import_obsidian6.Notice(`Fav Collector: \u5DF2\u751F\u6210/\u66F4\u65B0 ${count} \u4E2A Markdown`);
   }
   async openCollectionList(platform) {
     const { workspace } = this.app;

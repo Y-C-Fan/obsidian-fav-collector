@@ -103,7 +103,7 @@ export class OmniCollectionListView extends ItemView {
   }
 
   getDisplayText(): string {
-    return "Omni Collector 收藏";
+    return "Fav Collector 收藏";
   }
 
   getState(): Record<string, unknown> {
@@ -122,7 +122,7 @@ export class OmniCollectionListView extends ItemView {
     const container = this.containerEl.children[1];
     container.empty();
     container.addClass("omni-list-view");
-    container.createEl("div", { text: "Omni Collector 收藏", cls: "omni-panel-title" });
+    container.createEl("div", { text: "Fav Collector 收藏", cls: "omni-panel-title" });
     this.totalEl = container.createEl("div", { cls: "omni-total" });
     this.toolbarEl = container.createEl("div", { cls: "omni-toolbar" });
     this.batchBarEl = container.createEl("div", { cls: "omni-batch-bar" });

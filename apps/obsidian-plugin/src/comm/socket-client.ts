@@ -1,5 +1,6 @@
 import net from "node:net";
-import { spawn, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { WebSocket, type RawData } from "ws";
 import type { OmniMessage, OmniMessageType } from "@omni/shared-core";
@@ -78,7 +79,7 @@ export class EngineClient {
     this.proc =
       this.opts.spawnEngine?.() ??
       spawn(
-        this.opts.nodeBin ?? process.execPath,
+        resolveNodeBin(this.opts.nodeBin),
         [
           this.opts.engineScript ?? "",
           "--data-dir",
@@ -658,4 +659,32 @@ export class EngineClient {
   private pipeNameOf(pipePath: string): string {
     return pipePath.includes("\\\\.\\pipe\\") ? pipePath.replace("\\\\.\\pipe\\", "") : pipePath;
   }
+}
+
+/**
+ * 解析 Node.js 可执行文件路径。
+ * Obsidian 跑在 Electron 里，`process.execPath` 是 Obsidian.exe 而不是 node，
+ * 直接用它 spawn 会导致 Engine 拉起失败（ws connect failed after retries）。
+ * 顺序：用户设置 > PATH（where/which node）> 看起来像 node 的 execPath。
+ */
+export function resolveNodeBin(configured?: string): string {
+  const trim = (configured ?? "").trim();
+  if (trim) {
+    if (fs.existsSync(trim)) return trim;
+    throw new Error(
+      `配置的 Node.js 路径不存在：${trim}（请在插件设置中更正）`,
+    );
+  }
+  try {
+    const cmd = process.platform === "win32" ? "where.exe" : "which";
+    const out = execFileSync(cmd, ["node"], { encoding: "utf8", windowsHide: true });
+    const first = out.split(/\r?\n/).map((s) => s.trim()).find(Boolean);
+    if (first && fs.existsSync(first)) return first;
+  } catch {
+    // PATH 里没有 node，继续兜底
+  }
+  if (/node/i.test(process.execPath) && fs.existsSync(process.execPath)) return process.execPath;
+  throw new Error(
+    "找不到 Node.js：请在插件设置「Node.js 可执行文件路径」中填写 node.exe 完整路径",
+  );
 }

@@ -107,12 +107,12 @@ describe("MarkdownBuilder", () => {
 
   it("builds topic hub note with wikilinks", () => {
     const hub = new MarkdownBuilder().buildTopicHub("桌搭设计", [
-      "Omni Collector/xiaohongshu/桌搭推荐",
-      "Omni Collector/bilibili/桌搭视频",
+      "Fav Collector/xiaohongshu/桌搭推荐",
+      "Fav Collector/bilibili/桌搭视频",
     ]);
     expect(hub).toContain("# 桌搭设计");
-    expect(hub).toContain("[[Omni Collector/xiaohongshu/桌搭推荐]]");
-    expect(hub).toContain("[[Omni Collector/bilibili/桌搭视频]]");
+    expect(hub).toContain("[[Fav Collector/xiaohongshu/桌搭推荐]]");
+    expect(hub).toContain("[[Fav Collector/bilibili/桌搭视频]]");
   });
 
   it("collection notes link to both tag and topic hub nodes (graph double-link)", () => {
@@ -121,15 +121,15 @@ describe("MarkdownBuilder", () => {
       tags: ["生活美学"],
       topics: ["桌搭设计"],
     });
-    expect(md).toContain("[[Omni Collector/Topics/桌搭设计]]");
-    expect(md).toContain("[[Omni Collector/Tags/生活美学]]");
+    expect(md).toContain("[[Fav Collector/Topics/桌搭设计]]");
+    expect(md).toContain("[[Fav Collector/Tags/生活美学]]");
   });
 
   it("builds tag hub note with wikilinks", () => {
     const hub = new MarkdownBuilder().buildTagHub("生活美学", [
-      "Omni Collector/xiaohongshu/桌搭推荐",
+      "Fav Collector/xiaohongshu/桌搭推荐",
     ]);
     expect(hub).toContain("# 生活美学");
-    expect(hub).toContain("[[Omni Collector/xiaohongshu/桌搭推荐]]");
+    expect(hub).toContain("[[Fav Collector/xiaohongshu/桌搭推荐]]");
   });
 });

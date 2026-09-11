@@ -1,4 +1,4 @@
-# Omni Collector (Obsidian Plugin)
+# Fav Collector (Obsidian Plugin)
 
 全平台收藏同步：把 B 站 / YouTube（Watch Later）/ 知乎 / X（Bookmarks）的收藏自动同步进 Obsidian（轻量目录 + 每日定时），并提供展开详情 Skill（`expand`，给 Coding Agent 调用）与 Tag / Topic 整理。
 
@@ -16,7 +16,7 @@
 1. 构建插件：`pnpm --filter @omni/obsidian-plugin build`
 2. 部署 Engine：`node apps/engine/scripts/deploy.mjs --data-dir <你的数据目录>`
 3. 复制插件：把 `main.js`、`manifest.json`、`styles.css` 放入 `<vault>/.obsidian/plugins/omni-collector/`
-4. Obsidian 设置 → 第三方插件 → 开启 Omni Collector（如未显示，先开启「开发者模式」）
+4. Obsidian 设置 → 第三方插件 → 开启 Fav Collector（如未显示，先开启「开发者模式」）
 5. 设置里填写数据目录，点击功能区图标启动 Engine 并触发首次同步
 
 ## 开发

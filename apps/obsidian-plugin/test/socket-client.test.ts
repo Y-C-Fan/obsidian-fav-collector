@@ -1,7 +1,8 @@
 import { describe, expect, it, afterEach } from "vitest";
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import { EngineCommServer } from "@omni/engine";
-import { EngineClient } from "../src/comm/socket-client.js";
+import { EngineClient, resolveNodeBin } from "../src/comm/socket-client.js";
 
 let server: EngineCommServer | undefined;
 let client: EngineClient | undefined;
@@ -149,5 +150,21 @@ describe("EngineClient", () => {
     const cs = await client.cookieStatus("bilibili");
     expect(cs.has_cookie).toBe(true);
     expect(cs.cookie_count).toBe(2);
+  });
+});
+
+describe("resolveNodeBin", () => {
+  it("prefers explicit setting when the file exists", () => {
+    expect(resolveNodeBin(process.execPath)).toBe(process.execPath);
+  });
+
+  it("resolves node from PATH when nothing configured", () => {
+    const found = resolveNodeBin("");
+    expect(fs.existsSync(found)).toBe(true);
+    expect(/node/i.test(found) || found.endsWith(".exe")).toBe(true);
+  });
+
+  it("throws a actionable error when nothing is found", () => {
+    expect(() => resolveNodeBin("C:\\definitely\\not\\here\\node.exe")).toThrowError(/Node\.js/);
   });
 });

@@ -17,7 +17,7 @@
 node <engine.cjs> --data-dir <数据目录> expand "<target>" [--max-chars N]
 ```
 
-- `<target>`：收藏 URL（推荐，直接从 `Omni Collector/<平台>/<标题>.md` 的系统区抄），
+- `<target>`：收藏 URL（推荐，直接从 `Fav Collector/<平台>/<标题>.md` 的系统区抄），
   或 `platform:platformItemId`，例如：
   - `bilibili:BV1xxxxxxx`
   - `youtube:xxxxxxxxxxx`（11 位视频 ID）
