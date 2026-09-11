@@ -1,11 +1,10 @@
 {
-  "id": "omni-collector",
+  "id": "fav-collector-local",
   "name": "Fav Collector",
-  "version": "0.7.6",
+  "version": "0.8.0",
   "minAppVersion": "1.5.0",
-  "description": "Multi-platform favorite collector (Bilibili, YouTube, Zhihu, X) with daily auto-sync, on-demand detail expansion for AI agents, Tag Atlas, Topic hubs and graph integration.",
+  "description": "One-click favorites sync (Bilibili/YouTube/Zhihu/X) with a card dashboard. No engine, no database.",
   "author": "Y-C-Fan",
-  "authorUrl": "https://github.com/Y-C-Fan",
-  "isDesktopOnly": true,
-  "fundingUrl": ""
+  "authorUrl": "https://github.com/Y-C-Fan/obsidian-fav-collector",
+  "isDesktopOnly": true
 }
