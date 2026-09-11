@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseXhsFavoritedNotes } from "../src/xiaohongshu/xiaohongshu.adapter.js";
-import { parseXhhFavoritePayload } from "../src/xiaoheihe/xiaoheihe.adapter.js";
+import { parseZhihuFavContents } from "../src/zhihu/zhihu.adapter.js";
 
 describe("parseXhsFavoritedNotes", () => {
   it("parses feed-style noteCard shape", () => {
@@ -104,59 +104,46 @@ describe("parseXhsFavoritedNotes", () => {
   });
 });
 
-describe("parseXhhFavoritePayload", () => {
-  it("parses link post favorites (real web shape)", () => {
+describe("parseZhihuFavContents", () => {
+  it("parses favlist contents (official open-platform shape)", () => {
     const json = {
-      status: "ok",
-      result: {
-        has_next: "1",
-        links: [
+      Code: 0,
+      Data: {
+        Items: [
           {
-            link: {
-              linkid: 187318769,
-              title: "导师：文字我不看，有莲花我真回",
-              description: "事实证明，和导师沟通，语言显得苍白无力",
-              user: { username: "今天做完实验了吗", userid: "94290858" },
-              topics: [{ name: "盒友杂谈", topic_id: 7214 }],
-              imgs: ["https://imgheybox1.max-c.com/bbs/x/thumb.jpeg"],
-              create_at: "1785816940",
-              has_video: 0,
-              is_deleted: 0,
-            },
+            Url: "https://www.zhihu.com/question/1/answer/2",
+            Title: "测试回答",
+            Author: { Name: "作者A" },
+            Summary: "摘要内容",
+            ContentType: "answer",
+            FavTime: "2026-09-01T00:00:00Z",
           },
         ],
+        Paging: { IsEnd: true, NextOffset: 0 },
       },
     };
-    const items = parseXhhFavoritePayload(json);
+    const { items, isEnd } = parseZhihuFavContents(json, "默认收藏夹");
     expect(items[0]).toMatchObject({
-      itemId: "187318769",
-      title: "导师：文字我不看，有莲花我真回",
-      url: "https://www.xiaoheihe.cn/app/bbs/link/187318769",
-      author: "今天做完实验了吗",
-      coverUrl: "https://imgheybox1.max-c.com/bbs/x/thumb.jpeg",
-      topic: "盒友杂谈",
-      contentType: "post",
+      url: "https://www.zhihu.com/question/1/answer/2",
+      title: "测试回答",
+      author: "作者A",
+      favlist: "默认收藏夹",
+      contentType: "answer",
     });
-    expect(items[0].collectedAt).toBe("2026-08-04T04:15:40.000Z");
+    expect(isEnd).toBe(true);
   });
 
-  it("keeps deleted links with deleted flag (PRD: 失效内容保留并标记)", () => {
+  it("skips items without url", () => {
     const json = {
-      result: {
-        links: [
-          {
-            link: { linkid: 1, title: "已删除", is_deleted: 1 },
-          },
-        ],
-      },
+      Code: 0,
+      Data: { Items: [{ Title: "无链接" }], Paging: { IsEnd: true } },
     };
-    const items = parseXhhFavoritePayload(json);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ itemId: "1", deleted: true });
+    const { items } = parseZhihuFavContents(json, "默认收藏夹");
+    expect(items).toEqual([]);
   });
 
   it("returns [] for unknown payload", () => {
-    expect(parseXhhFavoritePayload({ result: {} })).toEqual([]);
-    expect(parseXhhFavoritePayload([])).toEqual([]);
+    expect(parseZhihuFavContents({ Data: {} }, "默认收藏夹").items).toEqual([]);
+    expect(parseZhihuFavContents(null, "默认收藏夹").items).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it, afterAll } from "vitest";
 import { MigrationManager, RuleCenter } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "migrations");
 const tmpDirs: string[] = [];
 afterAll(() => {
   for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });

@@ -2,7 +2,7 @@ import { App, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OmniCollectorPlugin from "./main.js";
 import { FolderSuggest } from "./ui/folder-suggest.js";
 
-/** 设置页：用户可配置项（当前：MakerWorld 是否同步点赞内容）。 */
+/** 设置页：用户可配置项（five-platform：B站/YouTube/小红书/知乎/X）。 */
 export class OmniSettingTab extends PluginSettingTab {
   constructor(
     app: App,
@@ -141,8 +141,8 @@ export class OmniSettingTab extends PluginSettingTab {
       ["bilibili", "B站"],
       ["youtube", "YouTube"],
       ["xiaohongshu", "小红书"],
-      ["makerworld", "MakerWorld"],
-      ["xiaoheihe", "小黑盒"],
+      ["zhihu", "知乎"],
+      ["x", "X"],
     ];
     for (const [key, label] of platforms) {
       new Setting(containerEl)
@@ -230,15 +230,15 @@ export class OmniSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("同步 MakerWorld 点赞内容")
-      .setDesc("开启后，MakerWorld 同步除了收藏夹，还会采集你点赞过的模型（默认关闭）。")
-      .addToggle((toggle) =>
-        toggle
-          .setValue(this.plugin.pluginSettings.makerworldSyncLikes)
+      .setName("知乎开放平台 Access Secret")
+      .setDesc("在 developer.zhihu.com/profile 生成，仅存本地加密区；官方 API 只覆盖公开收藏夹。留空则用浏览器登录态兜底。")
+      .addText((text) =>
+        text
+          .setValue(this.plugin.pluginSettings.zhihuSecret)
           .onChange(async (value) => {
-            this.plugin.pluginSettings.makerworldSyncLikes = value;
+            this.plugin.pluginSettings.zhihuSecret = value.trim();
             await this.plugin.saveSettings();
-            await this.plugin.updateRule("makerworld_sync_likes", String(value));
+            await this.plugin.updateRule("zhihu_secret_set", value.trim() ? "1" : "0");
           }),
       );
 

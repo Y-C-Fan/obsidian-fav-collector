@@ -4,8 +4,9 @@ import path from "node:path";
 import { describe, expect, it, afterAll } from "vitest";
 import { CookieCipher, SyncRunner } from "../src/index.js";
 
-const DATA_DIR = "D:/Github/My_Project/omni-collection/data";
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+/** 本地凭据目录（默认 <engine>/test-data，可用 OMNI_TEST_DATA 覆盖；无 Cookie 时整组跳过）。 */
+const DATA_DIR = process.env.OMNI_TEST_DATA ?? path.join(process.cwd(), "test-data");
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 
 const hasBiliCookie = (() => {
   try {

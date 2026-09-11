@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   extractYoutubeId,
   extractXiaohongshuId,
-  extractMakerWorldId,
-  extractXiaoheiheId,
-  extractXiaoheiheLinkId,
+  extractZhihuId,
+  parseZhihuFavContents,
+  extractXId,
   extractUgcSeason,
   YouTubeAdapter,
   XiaohongshuAdapter,
-  MakerWorldAdapter,
-  XiaoheiheAdapter,
+  ZhihuAdapter,
+  XAdapter,
 } from "../src/index.js";
 
 describe("platform id extraction", () => {
@@ -28,17 +28,45 @@ describe("platform id extraction", () => {
     expect(extractXiaohongshuId("https://example.com")).toBeNull();
   });
 
-  it("makerworld", () => {
-    expect(extractMakerWorldId("https://makerworld.com/zh/models/123456~slug")).toBe("123456");
-    expect(extractMakerWorldId("https://example.com")).toBeNull();
+  it("zhihu", () => {
+    expect(extractZhihuId("https://www.zhihu.com/question/123/answer/456")).toBe("answer-456");
+    expect(extractZhihuId("https://zhuanlan.zhihu.com/p/789")).toBe("p-789");
+    expect(extractZhihuId("https://www.zhihu.com/zvideo/101112")).toBe("zvideo-101112");
+    expect(extractZhihuId("https://www.zhihu.com/question/123")).toBe("q-123");
+    expect(extractZhihuId("https://example.com")).toBeNull();
   });
 
-  it("xiaoheihe", () => {
-    expect(extractXiaoheiheId("https://xiaoheihe.cn/game/100001")).toBe("100001");
-    expect(extractXiaoheiheId("https://api.xiaoheihe.cn/app/42")).toBe("42");
-    expect(extractXiaoheiheId("https://example.com")).toBeNull();
-    expect(extractXiaoheiheLinkId("https://www.xiaoheihe.cn/app/bbs/link/187318769")).toBe("187318769");
-    expect(extractXiaoheiheLinkId("https://xiaoheihe.cn/game/100001")).toBeNull();
+  it("x", () => {
+    expect(extractXId("https://x.com/someuser/status/123456789")).toBe("123456789");
+    expect(extractXId("https://twitter.com/someuser/status/123456789")).toBe("123456789");
+    expect(extractXId("https://x.com/home")).toBeNull();
+  });
+});
+
+describe("zhihu favlist_contents parsing", () => {
+  it("parses items and paging", () => {
+    const body = {
+      Code: 0,
+      Data: {
+        Items: [
+          {
+            Url: "https://www.zhihu.com/question/1/answer/2",
+            Title: "测试回答",
+            Author: { Name: "作者A" },
+            Summary: "摘要",
+            ContentType: "answer",
+            FavTime: "2026-09-01T00:00:00Z",
+          },
+          { Title: "无链接条目" },
+        ],
+        Paging: { IsEnd: false, NextOffset: 50 },
+      },
+    };
+    const { items, isEnd, nextOffset } = parseZhihuFavContents(body, "默认收藏夹");
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ title: "测试回答", author: "作者A", favlist: "默认收藏夹" });
+    expect(isEnd).toBe(false);
+    expect(nextOffset).toBe(50);
   });
 });
 
@@ -57,15 +85,24 @@ describe("adapter normalize mapping", () => {
     expect(xhs.platform).toBe("xiaohongshu");
     expect(xhs.contentType).toBe("note");
 
-    const mw = new MakerWorldAdapter().normalize(
-      { platformItemId: "1", url: "https://makerworld.com/zh/models/1~a", title: "M", saveType: "favorited" },
+    const zh = new ZhihuAdapter().normalize(
+      {
+        platformItemId: "answer-2",
+        url: "https://www.zhihu.com/question/1/answer/2",
+        title: "Z",
+        saveType: "favorited",
+        extra: { contentType: "answer" },
+      },
     );
-    expect(mw.contentType).toBe("3dmodel");
+    expect(zh.platform).toBe("zhihu");
+    expect(zh.contentType).toBe("answer");
 
-    const xhh = new XiaoheiheAdapter().normalize(
-      { platformItemId: "2", url: "https://xiaoheihe.cn/game/2", title: "G", saveType: "favorited" },
+    const x = new XAdapter().normalize(
+      { platformItemId: "123", url: "https://x.com/u/status/123", title: "X", saveType: "liked" },
     );
-    expect(xhh.contentType).toBe("post");
+    expect(x.platform).toBe("x");
+    expect(x.contentType).toBe("tweet");
+    expect(x.saveType).toBe("liked");
   });
 });
 
@@ -73,10 +110,10 @@ describe("extractUgcSeason", () => {
   it("extracts series info from bilibili view detail", () => {
     const json = {
       data: {
-        ugc_season: { id: 123, title: "RIG系列", season_id: 456, ep_count: 10 },
+        ugc_season: { id: 123, title: "RIGϵ��", season_id: 456, ep_count: 10 },
       },
     };
-    expect(extractUgcSeason(json)).toMatchObject({ title: "RIG系列", epCount: 10 });
+    expect(extractUgcSeason(json)).toMatchObject({ title: "RIGϵ��", epCount: 10 });
   });
 
   it("returns null when no ugc_season", () => {

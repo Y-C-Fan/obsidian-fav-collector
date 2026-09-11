@@ -23,8 +23,8 @@ const PLATFORMS = [
   { key: "bilibili", label: "B站" },
   { key: "youtube", label: "YouTube" },
   { key: "xiaohongshu", label: "小红书" },
-  { key: "makerworld", label: "MakerWorld" },
-  { key: "xiaoheihe", label: "小黑盒" },
+  { key: "zhihu", label: "知乎" },
+  { key: "x", label: "X" },
 ];
 
 const PRIORITIES: Array<{ key: CollectionDTO["priority"]; label: string }> = [

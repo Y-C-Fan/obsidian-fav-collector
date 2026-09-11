@@ -13,26 +13,27 @@ import {
 import {
   BaseAdapter,
   BilibiliAdapter,
-  MakerWorldAdapter,
-  XiaoheiheAdapter,
+  XAdapter,
   XiaohongshuAdapter,
   YouTubeAdapter,
+  ZhihuAdapter,
 } from "@omni/adapters";
 import { BrowserSessionManager } from "./browser-session.js";
 import { SyncPipeline, type SyncMode, type SyncReport } from "./sync-pipeline.js";
+import { CookieCipher } from "../crypto/cookie-cipher.js";
 
-/** 平台 -> Adapter 工厂（TDD Part 6.5 全部平台）。 */
+/** 平台 -> Adapter 工厂（five-platform 版：B站 / YouTube / 小红书 / 知乎 / X）。 */
 const ADAPTER_FACTORIES: Record<string, () => BaseAdapter> = {
   bilibili: () => new BilibiliAdapter(),
   youtube: () => new YouTubeAdapter(),
   xiaohongshu: () => new XiaohongshuAdapter(),
-  makerworld: () => new MakerWorldAdapter(),
-  xiaoheihe: () => new XiaoheiheAdapter(),
+  zhihu: () => new ZhihuAdapter(),
+  x: () => new XAdapter(),
 };
 
 export const SUPPORTED_PLATFORMS = Object.keys(ADAPTER_FACTORIES);
-/** 指纹绑定/Cloudflare 平台必须复用持久化 Profile；其余平台走 cookie/storageState 注入。 */
-const PERSISTENT_PROFILE_PLATFORMS = new Set(["makerworld"]);
+/** 指纹绑定平台需复用持久化 Profile；当前五平台均走 cookie/storageState 注入。 */
+const PERSISTENT_PROFILE_PLATFORMS = new Set<string>([]);
 
 export interface SyncRunnerOptions {
   dataDir: string;
@@ -100,7 +101,7 @@ export class SyncRunner {
         ai: new AIRepository(db),
         tags: new TagRepository(db),
       });
-      // 指纹绑定平台（如 MakerWorld 的 Cloudflare 会话）需复用持久化 Profile
+      // 持久化 Profile 平台（如有）复用同一 user-data-dir；当前五平台均走普通会话
       const profileDir = sessions.profileDir(platform);
       ctx =
         PERSISTENT_PROFILE_PLATFORMS.has(platform) && fs.existsSync(profileDir)
@@ -190,8 +191,15 @@ export class SyncRunner {
   }
 
   private adapterFor(p: string, rules: RuleCenter): BaseAdapter {
-    if (p === "makerworld") {
-      return new MakerWorldAdapter({ syncLikes: rules.getBool("makerworld_sync_likes", false) });
+    if (p === "zhihu") {
+      // 知乎开放平台 Access Secret 存于本地加密区（cookies/zhihu_secret.enc），由设置页导入
+      let secret: string | undefined;
+      try {
+        secret = new CookieCipher(this.opts.dataDir).decryptCookie("zhihu_secret") ?? undefined;
+      } catch {
+        secret = undefined;
+      }
+      return new ZhihuAdapter({ secret });
     }
     if (p === "youtube") {
       const cmdRaw = rules.get("ytdlp_command");

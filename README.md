@@ -1,6 +1,6 @@
 # Omni Collector
 
-Omni Collector is a desktop-only Obsidian plugin that syncs your favorites and likes from Bilibili, YouTube, Xiaohongshu (Little Red Book), MakerWorld and Xiaoheihe into your vault. It supports AI tagging suggestions (Tag / Topic / Group / Summary), a Tag Atlas with aliases, Topic hub notes linked into the Obsidian graph, local file indexing, and an optional local sync engine (Node.js).
+Omni Collector is a desktop-only Obsidian plugin that syncs your favorites and likes from Bilibili, YouTube, Xiaohongshu (Little Red Book), Zhihu and X (Twitter) into your vault. It supports AI tagging suggestions (Tag / Topic / Group / Summary), a Tag Atlas with aliases, Topic hub notes linked into the Obsidian graph, local file indexing, and an optional local sync engine (Node.js).
 
 **Highlights**
 
@@ -13,7 +13,7 @@ Omni Collector is a desktop-only Obsidian plugin that syncs your favorites and l
 
 全平台收藏同步与本地知识管理工具（Obsidian Plugin + 独立本地同步引擎）。
 
-把 **B站 / YouTube / 小红书 / MakerWorld / 小黑盒** 的收藏、点赞、稍后再看自动同步进 Obsidian，并提供 AI 整理建议（Tag / Topic / 分组 / 摘要）、跨平台内容关联、本地文件索引与 Tag Atlas 标签体系。
+把 **B站 / YouTube / 小红书 / 知乎 / X** 的收藏、点赞、稍后再看自动同步进 Obsidian，并提供 AI 整理建议（Tag / Topic / 分组 / 摘要）、跨平台内容关联、本地文件索引与 Tag Atlas 标签体系。
 
 ## 功能
 
@@ -22,8 +22,8 @@ Omni Collector is a desktop-only Obsidian plugin that syncs your favorites and l
 - B站：全部收藏夹 + 稍后再看（WBI 签名直连，评论采集）
 - YouTube：Liked 全量列表（yt-dlp + cookies，字幕提取默认关闭）
 - 小红书：收藏 + 点赞（x-s 签名直连，分页全量）
-- MakerWorld：收藏 + 点赞（可选开关，Cloudflare 持久化会话）
-- 小黑盒：帖子收藏全量（浏览器驱动，失效内容保留并标记）
+- 知乎：全部分类收藏夹（官方开放平台直连，仅公开范围；无 Secret 时浏览器兜底）
+- X：Bookmarks 私有收藏 + Likes（浏览器驱动，失效推文保留并标记）
 
 初始同步按 PRD v4.2 拉取所有收藏的标题 / URL / 封面（轻量元数据）；完整详情按需执行。
 

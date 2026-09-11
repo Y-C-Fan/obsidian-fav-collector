@@ -6,7 +6,7 @@ import { LifecycleManager } from "../src/lifecycle/lifecycle-manager.js";
 import { EngineState } from "../src/lifecycle/engine-state.js";
 import { AppError } from "../src/errors/app-error.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 
 let dataDir: string;
 

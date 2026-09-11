@@ -9,7 +9,7 @@ import {
   UserRepository,
 } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "migrations");
 
 let dataDir: string;
 let manager: MigrationManager;

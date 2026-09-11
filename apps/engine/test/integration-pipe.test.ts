@@ -7,7 +7,8 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, afterAll } from "vitest";
 import { CookieCipher } from "../src/index.js";
 
-const ROOT = "D:/Github/My_Project/omni-collection";
+/** 仓库根目录（本文件位于 <root>/apps/engine/test，向上两级即根）。 */
+const ROOT = path.join(process.cwd(), "..", "..");
 const hasBiliCookie = (() => {
   try {
     return !!new CookieCipher(path.join(ROOT, "data")).decryptCookie("bilibili");
@@ -81,7 +82,7 @@ describe("integration: deployed engine over named pipe", () => {
         }
         expect(ready).toBeTruthy();
 
-        const rule = await request(pipePath, mk("RULE_UPDATE", { rule_key: "makerworld_sync_likes", rule_value: "true" }));
+        const rule = await request(pipePath, mk("RULE_UPDATE", { rule_key: "zhihu_secret_set", rule_value: "1" }));
         expect(rule.message_type).toBe("TASK_COMPLETE");
 
         const group = await request(pipePath, mk("TASK_GROUP", {}));

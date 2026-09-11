@@ -16,7 +16,7 @@ import {
 } from "@omni/database";
 import { CookieCipher, TaskService } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 const tmpDirs: string[] = [];
 afterAll(() => {
   for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });
@@ -49,15 +49,15 @@ function makeDataDir(): string {
 }
 
 describe("TaskService (internal, fake provider)", () => {
-  it("RULE_UPDATE persists rule (makerworld_sync_likes toggle)", async () => {
+  it("RULE_UPDATE persists rule (zhihu_secret_set toggle)", async () => {
     const dataDir = makeDataDir();
     const service = new TaskService({ dataDir, migrationsDir: path.join(dataDir, "migrations") });
     try {
-      const res = await service.handlers().RULE_UPDATE?.(makeMsg("RULE_UPDATE", { rule_key: "makerworld_sync_likes", rule_value: "true" }));
+      const res = await service.handlers().RULE_UPDATE?.(makeMsg("RULE_UPDATE", { rule_key: "zhihu_secret_set", rule_value: "1" }));
       expect(res?.message_type).toBe("TASK_COMPLETE");
       const manager = new MigrationManager(path.join(dataDir, "OmniCollector.db"), path.join(dataDir, "migrations"), path.join(dataDir, "backup"));
       manager.migrate();
-      expect(new RuleCenter(manager.getDb()).getBool("makerworld_sync_likes", false)).toBe(true);
+      expect(new RuleCenter(manager.getDb()).get("zhihu_secret_set", "0")).toBe("1");
       manager.close();
     } finally {
       service.dispose();
@@ -89,11 +89,11 @@ describe("TaskService (internal, fake provider)", () => {
       const manager = new MigrationManager(path.join(dataDir, "OmniCollector.db"), path.join(dataDir, "migrations"), path.join(dataDir, "backup"));
       manager.migrate();
       const db = manager.getDb();
-      new CollectionRepository(db).upsertByPlatformItem("makerworld", "model-1", {
-        url: "https://makerworld.com.cn/zh/models/1",
-        title: "测试模型",
+      new CollectionRepository(db).upsertByPlatformItem("zhihu", "answer-1", {
+        url: "https://www.zhihu.com/question/1/answer/1",
+        title: "测试回答",
       });
-      const col = new CollectionRepository(db).findByUrl("https://makerworld.com.cn/zh/models/1");
+      const col = new CollectionRepository(db).findByUrl("https://www.zhihu.com/question/1/answer/1");
       manager.close();
 
       const res = await service.handlers().TASK_AI?.(makeMsg("TASK_AI", { collection_id: (col as { id: string }).id }));

@@ -5,7 +5,7 @@ import path from "node:path";
 import { MigrationManager, FileRepository } from "@omni/database";
 import { FileIndexer } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 
 let dataDir: string;
 let folder: string;

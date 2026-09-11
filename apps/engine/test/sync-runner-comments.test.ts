@@ -5,7 +5,7 @@ import { describe, expect, it, afterAll } from "vitest";
 import { CollectionRepository, MigrationManager } from "@omni/database";
 import { selectRecentCommentCollections } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 const tmpDirs: string[] = [];
 afterAll(() => {
   for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });

@@ -8,7 +8,7 @@ import {
   CollectionRepository,
 } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "migrations");
 
 let dataDir: string;
 let manager: MigrationManager;
@@ -67,8 +67,8 @@ describe("ContentGroupRepository", () => {
 
   it("unbinds a collection", () => {
     const g = groups.createGroup("组C", "knowledge");
-    const c = collections.upsertByPlatformItem("makerworld", "mw-cg", {
-      url: "https://makerworld.com/mw-cg",
+    const c = collections.upsertByPlatformItem("zhihu", "zh-cg", {
+      url: "https://www.zhihu.com/question/1/answer/1",
     });
     groups.bindCollection(g.id, c.id);
     groups.unbindCollection(c.id);

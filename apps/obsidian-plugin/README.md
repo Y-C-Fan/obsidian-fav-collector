@@ -1,12 +1,12 @@
 # Omni Collector (Obsidian Plugin)
 
-全平台收藏同步与本地知识管理：把 B 站 / YouTube / 小红书 / MakerWorld / 小黑盒 的收藏与点赞自动同步进 Obsidian，并提供 AI 整理建议（分组 / Topic / Tag）与本地知识管理。
+全平台收藏同步与本地知识管理：把 B 站 / YouTube / 小红书 / 知乎 / X 的收藏与点赞自动同步进 Obsidian，并提供 AI 整理建议（分组 / Topic / Tag）与本地知识管理。
 
 > 插件依赖独立运行的 **Engine**（Node.js + Playwright），首次使用请先部署 Engine（见下文「接入 Obsidian」）。
 
 ## 功能
 
-- 五平台收藏 / 点赞同步（小红书走签名直连，MakerWorld 需一次性通过 Cloudflare 验证）
+- 五平台收藏 / 点赞同步（小红书走签名直连，知乎走官方开放平台，X 走浏览器驱动）
 - Markdown 收藏卡片 + Dataview 查询模板
 - AI 批处理建议（Tag / Topic / 分组）与人工审核
 - ContentGroup 跨平台关联识别（同实体 / 系列）

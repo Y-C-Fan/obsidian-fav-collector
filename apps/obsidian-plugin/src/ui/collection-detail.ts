@@ -20,8 +20,8 @@ const PLATFORM_LABELS: Record<string, string> = {
   bilibili: "B站",
   youtube: "YouTube",
   xiaohongshu: "小红书",
-  makerworld: "MakerWorld",
-  xiaoheihe: "小黑盒",
+  zhihu: "知乎",
+  x: "X",
 };
 
 /** 平台官方可嵌入播放器（复用平台能力，不搬浏览器）。 */

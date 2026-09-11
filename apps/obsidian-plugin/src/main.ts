@@ -423,7 +423,7 @@ export default class OmniCollectorPlugin extends Plugin {
 
   /** 同步全部平台，完成后生成 Markdown 并提示。 */
   async syncAllAndRender(): Promise<void> {
-    const platforms = ["bilibili", "youtube", "xiaohongshu", "makerworld", "xiaoheihe"];
+    const platforms = ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"];
     new Notice("Omni Collector: 开始同步全部平台…");
     let ok = 0;
     let fetched = 0;
@@ -625,7 +625,7 @@ export default class OmniCollectorPlugin extends Plugin {
     const filters = modal.contentEl.createEl("div", { cls: "omni-batch-filter" });
     const platformSel = filters.createEl("select");
     platformSel.createEl("option", { text: "全部平台", attr: { value: "" } });
-    for (const p of ["bilibili", "youtube", "xiaohongshu", "makerworld", "xiaoheihe"]) {
+    for (const p of ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"]) {
       platformSel.createEl("option", { text: p, attr: { value: p } });
     }
     const daysSel = filters.createEl("select");

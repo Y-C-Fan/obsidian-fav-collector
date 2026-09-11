@@ -12,8 +12,8 @@ const DEFAULT_DOMAINS: Record<string, string> = {
   bilibili: ".bilibili.com",
   youtube: ".youtube.com",
   xiaohongshu: ".xiaohongshu.com",
-  xiaoheihe: ".xiaoheihe.cn",
-  makerworld: ".makerworld.com",
+  zhihu: ".zhihu.com",
+  x: ".x.com",
 };
 
 export interface StoredCookie {

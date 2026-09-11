@@ -362,7 +362,7 @@ export class TaskService {
               )
               .get(platform) as { n: number }
           ).n;
-        const platforms = ["bilibili", "youtube", "xiaohongshu", "makerworld", "xiaoheihe"].map((platform) => {
+        const platforms = ["bilibili", "youtube", "xiaohongshu", "zhihu", "x"].map((platform) => {
           const account = accounts.find((a) => a.platform === platform);
           const healthRow = health.find((h) => h.adapter === platform);
           let level: "green" | "yellow" | "red" = "green";

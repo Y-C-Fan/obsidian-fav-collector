@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { MigrationManager } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "migrations");
 
 function makeDir(prefix: string): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -30,13 +30,13 @@ describe("MigrationManager", () => {
     const { manager, cleanup } = setupManager();
     try {
       const first = manager.migrate();
-  expect(first.applied).toHaveLength(7);
-  expect(manager.currentVersion()).toBe(7);
-  expect(manager.getDb().pragma("user_version", { simple: true })).toBe(7);
+  expect(first.applied).toHaveLength(8);
+  expect(manager.currentVersion()).toBe(8);
+  expect(manager.getDb().pragma("user_version", { simple: true })).toBe(8);
 
       const second = manager.migrate();
       expect(second.applied).toHaveLength(0);
-  expect(manager.currentVersion()).toBe(7);
+  expect(manager.currentVersion()).toBe(8);
     } finally {
       cleanup();
     }

@@ -15,7 +15,7 @@ import {
 import { BaseAdapter, type CollectionDetail, type CollectionRaw, type SyncCursor, type UniversalCollection } from "@omni/adapters";
 import { SyncPipeline } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 
 class FakeAdapter extends BaseAdapter {
   readonly platform = "fake";

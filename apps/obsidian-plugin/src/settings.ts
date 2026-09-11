@@ -7,8 +7,8 @@ export interface OmniSettings {
   engineScript: string;
   /** 一次性 WebSocket 握手令牌。 */
   wsToken: string;
-  /** MakerWorld 是否同步点赞内容（用户开关，默认关闭）。 */
-  makerworldSyncLikes: boolean;
+  /** 知乎开放平台 Access Secret（写入本地加密区 cookies/zhihu_secret.enc，仅本地）。 */
+  zhihuSecret: string;
   /** Node.js 可执行文件路径（Engine 子进程）；留空时使用 PATH 上的 node。 */
   nodeBin: string;
   /** AI 批处理总开关（写入规则 ai_enabled）。 */
@@ -61,7 +61,7 @@ export const DEFAULT_SETTINGS: OmniSettings = {
   dataDir: "",
   engineScript: "",
   wsToken: "",
-  makerworldSyncLikes: false,
+  zhihuSecret: "",
   nodeBin: "",
   aiEnabled: false,
   aiProvider: "deepseek",
@@ -77,8 +77,8 @@ export const DEFAULT_SETTINGS: OmniSettings = {
     bilibili: "daily",
     youtube: "daily",
     xiaohongshu: "daily",
-    makerworld: "daily",
-    xiaoheihe: "daily",
+    zhihu: "daily",
+    x: "daily",
   },
   initFullDetailLimit: 50,
   syncRandomWindowMinutes: 120,

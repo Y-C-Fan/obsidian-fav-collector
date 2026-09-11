@@ -215,7 +215,7 @@ export class EngineClient {
     this.dispose();
   }
 
-  /** 更新业务规则（如 makerworld_sync_likes 用户开关）。 */
+  /** 更新业务规则（如 zhihu_secret_set 标记）。 */
   async updateRule(key: string, value: string): Promise<OmniMessage> {
     return this.request({
       request_id: randomUUID(),

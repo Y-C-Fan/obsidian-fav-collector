@@ -1,11 +1,13 @@
 import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { chromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
 import { XiaohongshuAdapter } from "@omni/adapters";
 import { CookieCipher } from "../src/index.js";
 
-const DATA_DIR = "D:/Github/My_Project/omni-collection/data";
+/** 本地凭据目录（默认 <engine>/test-data，可用 OMNI_TEST_DATA 覆盖；无 Cookie 时整组跳过）。 */
+const DATA_DIR = process.env.OMNI_TEST_DATA ?? path.join(process.cwd(), "test-data");
 chromium.use(stealth());
 
 const cookieJson = (() => {

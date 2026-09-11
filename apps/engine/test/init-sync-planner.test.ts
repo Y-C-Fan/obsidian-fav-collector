@@ -5,7 +5,7 @@ import path from "node:path";
 import { MigrationManager, RuleCenter } from "@omni/database";
 import { planInitialSync } from "../src/index.js";
 
-const REAL_MIGRATIONS = "D:/Github/My_Project/omni-collection/packages/database/migrations";
+const REAL_MIGRATIONS = path.join(process.cwd(), "..", "..", "packages", "database", "migrations");
 
 let dataDir: string;
 let manager: MigrationManager;

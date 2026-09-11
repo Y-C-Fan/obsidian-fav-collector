@@ -15,9 +15,5 @@ export { extractUgcSeason } from "./bilibili/bilibili.adapter.js";
 export { getMixinKey, signParams } from "./bilibili/wbi.js";
 export { YouTubeAdapter, extractYoutubeId } from "./youtube/youtube.adapter.js";
 export { XiaohongshuAdapter, extractXiaohongshuId } from "./xiaohongshu/xiaohongshu.adapter.js";
-export { MakerWorldAdapter, extractMakerWorldId } from "./makerworld/makerworld.adapter.js";
-export {
-  XiaoheiheAdapter,
-  extractXiaoheiheId,
-  extractXiaoheiheLinkId,
-} from "./xiaoheihe/xiaoheihe.adapter.js";
+export { ZhihuAdapter, extractZhihuId, parseZhihuFavContents } from "./zhihu/zhihu.adapter.js";
+export { XAdapter, extractXId } from "./x/x.adapter.js";
